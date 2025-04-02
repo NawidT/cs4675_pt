@@ -26,10 +26,14 @@ class UnstructuredData(TypedDict):
     key_facts: dict[str, str] # key facts of the conversation
     static_data: dict[str, Image.Image] # static data of the conversation
 
-class ConversationData(TypedDict):
+class PTData(TypedDict):
     structured_data: StructuredData
     unstructured_data: UnstructuredData
 
+
+# step 1: fetch data from db
+# step 2: process user input and return response
+# step 3: update conversation data in db
 
 def get_user_data(user_id):
     user_ref = db.collection("test-users").document(user_id)
