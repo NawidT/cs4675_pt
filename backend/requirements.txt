@@ -1,3 +1,5 @@
 firebase_admin
 fastapi
 openai
+pillow
+langchain
