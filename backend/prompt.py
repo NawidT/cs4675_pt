@@ -1,4 +1,4 @@
-import openai # For DeepSeek
+import openai # For OpenRouter API
 import google.generativeai
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
@@ -6,7 +6,6 @@ import certifi
 import os
 
 class LLMQuery:
-    # For Burner Email 
     def __init__(self, chat_history, information, question):
         self.chat_history = chat_history
         self.information = information
