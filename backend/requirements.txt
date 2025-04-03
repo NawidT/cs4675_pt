@@ -1,3 +1,7 @@
 firebase_admin
 fastapi
 openai
+google-generativeai
+anthropic
+certifi
+python-dotenv
