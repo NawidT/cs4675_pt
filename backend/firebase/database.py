@@ -3,9 +3,9 @@ from firebase_admin import credentials, firestore
 from typing_extensions import TypedDict
 from PIL import Image
 from langchain_openai.chat_models import ChatOpenAI
-from langchain_core.output_parsers import JsonOutputParser, PydanticOutputParser
+from langchain_core.output_parsers import JsonOutputParser, PydanticOutputParser, StrOutputParser
 from langchain_core.prompts import PromptTemplate
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
 
 
 # TECHNICAL DECISION: support only one conversation per user    
@@ -69,6 +69,18 @@ class HumanExternalDataStore:
     def get_pt_data(self):
         return self.pt_data
     
+    def invoke_chat(self, messages: list[BaseMessage], ret_type: str):
+        if ret_type == "json":
+            chain = self.chat | JsonOutputParser()
+            result = chain.invoke(messages)
+            return result
+        elif ret_type == "str":
+            chain = self.chat | StrOutputParser()
+            result = chain.invoke(messages)
+            return result
+        else:
+            raise ValueError("Invalid return type")
+        
     def update_structured_data(self, structured_data: StructuredData):
         self.structured_data = structured_data
         self.pt_data = PTData(
@@ -95,19 +107,19 @@ class HumanExternalDataStore:
     def init_facts(self):
         """ Initialize facts from messages, responses, and summary """
         # get last 20 messages and responses
-        messages = self.structured_data["messages"]
-        responses = self.structured_data["responses"]
-        summary = self.structured_data["summary"]
+        messages = self.structured_data['messages']
+        responses = self.structured_data['responses']
+        summary = self.structured_data['summary']
 
-        messages = []
+        combined_messages = []
         for i, m in enumerate(messages):
-            messages.insert(0, HumanMessage(content=m))
-            messages.insert(0, AIMessage(content=responses[i]))
+            combined_messages.insert(0, HumanMessage(content=m))
+            combined_messages.insert(0, AIMessage(content=responses[i]))
 
-        print(messages)
+        print(combined_messages)
 
         # parse into structured data
-        prompt = """
+        prompt = SystemMessage(content="""
             Based on the following message chain and summary, extract the key facts of the conversation.
             Summary: {summary}
 
@@ -121,14 +133,10 @@ class HumanExternalDataStore:
             }}
 
             Return the JSON format only, nothing else.
-        """.format(summary=summary)
-        # parse into structured data
-        parser = PydanticOutputParser(pydantic_object=list[dict[str, str]])
-        prompt = PromptTemplate(
-            template=prompt
-        )
-        chain = prompt | self.chat
-        result = chain.invoke(messages)
+        """.format(summary=summary))
+        combined_messages.append(prompt)
+        
+        result = self.invoke_chat(combined_messages, "json")
         print(result)
         
 
