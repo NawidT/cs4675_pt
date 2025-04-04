@@ -33,12 +33,18 @@ class HumanExternalDataStore:
         cred = credentials.Certificate("backend/serviceAccountKey.json")
         firebase_admin.initialize_app(cred)
         self.db = firestore.client()
-
+        self.msg_chain = []
         self.chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        self.cur_key_facts = {}
+        self.cur_summary = ""
 
         # use fname and lname to get user id
         try:
-            self.user_id = self.db.collection("convos").where("fname", "==", user_fname).where("lname", "==", user_lname).get()[0].id
+            self.user_id = self.db.collection("convos").where(
+                "fname", "==", user_fname
+            ).where(
+                "lname", "==", user_lname
+            ).get()[0].id
             print(f"User {user_fname} {user_lname} found with id {self.user_id}")
         except:
             raise ValueError("User not found")
@@ -46,6 +52,11 @@ class HumanExternalDataStore:
         # fetch data from db
         self.structured_data = self.db.collection("convos").document(self.user_id).get().to_dict()
         print(self.structured_data)
+
+        # populate msg_chain
+        for i, m in enumerate(self.structured_data["messages"]):
+            self.msg_chain.insert(0, HumanMessage(content=m))
+            self.msg_chain.insert(0, AIMessage(content=self.structured_data["responses"][i]))
         
         # manually create unstructured data
         self.unstructured_data = UnstructuredData(
@@ -53,7 +64,9 @@ class HumanExternalDataStore:
             static_data={}
         )
 
-        self.init_facts()
+        kf = self.init_facts()
+        if kf:
+            self.unstructured_data["key_facts"] = kf
 
         self.pt_data = PTData(
             structured_data=self.structured_data, 
@@ -105,44 +118,66 @@ class HumanExternalDataStore:
         })
 
     def init_facts(self):
-        """ Initialize facts from messages, responses, and summary """
-        # get last 20 messages and responses
-        messages = self.structured_data['messages']
-        responses = self.structured_data['responses']
-        summary = self.structured_data['summary']
-
-        combined_messages = []
-        for i, m in enumerate(messages):
-            combined_messages.insert(0, HumanMessage(content=m))
-            combined_messages.insert(0, AIMessage(content=responses[i]))
-
-        print(combined_messages)
-
-        # parse into structured data
-        prompt = SystemMessage(content="""
-            Based on the following message chain and summary, extract the key facts of the conversation.
-            Summary: {summary}
-
-            Return the key facts in a JSON format with list of key-value pairs.
-            Example:
-            {{
-                key_facts:[
-                    key1: description of fact 1,
-                    key2: description of fact 2,
-                ]
-            }}
-
-            Return the JSON format only, nothing else.
-        """.format(summary=summary))
-        combined_messages.append(prompt)
+        """
+        Retrieves key facts document from Firestore if it exists.
+        """
+        # Get the document reference for key facts from the user's document
+        user_doc = self.db.collection("convos").document(self.user_id).get().to_dict()
+        kf_ref = user_doc.get('kf_ref')
         
-        result = self.invoke_chat(combined_messages, "json")
-        print(result)
+        # Retrieve the key facts document using the reference
+        if kf_ref:
+            key_facts = kf_ref.get().to_dict()
+            print("Retrieved key facts:", key_facts)
+            return key_facts
+        else:
+            print("No key facts reference found for this user")
+            return None
+
+
+
+    def update_summary(self):
+        " Update the summary within the PT Data points"
+        # update the summary
+        sum_upd = HumanMessage(content="""
+            Based on the the following message chain and summary, update the summary.
+            Make as few changes to the summary, keep the key pieces of information still there.
+            Summary: {summary}                 
+            Here are the key facts as key value pairs: {key_facts}. 
+            RETURN ONLY THE SUMMARY AS A STRING
+        """.format(
+            summary=self.structured_data["summary"], 
+            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()]))
+        ))
+
+        # invoke chat
+        self.structured_data["summary"] = self.invoke_chat(self.msg_chain + [sum_upd], "str")
+        self.msg_chain.remove(sum_upd)
+        self.cur_summary = self.structured_data["summary"]
+
+    def update_key_facts(self, human_input: str, ai_response: str):
+        " Update the key facts within the PT Data points"
+        # update the messages and responses and limit to 20
         
+        kf_upd = HumanMessage(content="""
+            Based on the the following message chain and key facts, update the key facts.
+            Key Facts: {key_facts}
+            Here is the message chain: {messages}
+            RETURN ONLY THE KEY FACTS AS A JSON
+        """.format(
+            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])), 
+            messages=self.msg_chain
+        ))
 
-    def parse_chat(self, human_input: str, ai_input: str, static_data: list[Image.Image]):
-        # parse chat into structured data
-        pass
+        # invoke chat
+        self.unstructured_data["key_facts"] = self.invoke_chat(self.msg_chain + [kf_upd], "json")
+        self.msg_chain.remove(kf_upd)
+        self.cur_key_facts = self.unstructured_data["key_facts"]
 
+
+
+
+        
+        
     
 HumanExternalDataStore("Bukayo", "Saka")
