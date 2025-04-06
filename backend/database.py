@@ -64,25 +64,39 @@ class HumanExternalDataStore:
             static_data={}
         )
 
+        # load key facts
         kf = self.init_facts()
         if kf:
-            self.unstructured_data["key_facts"] = kf
+            self.unstructured_data["kf_ref"] = kf
 
         self.pt_data = PTData(
             structured_data=self.structured_data, 
             unstructured_data=self.unstructured_data
         )
-    
-    def get_structured_data(self):
-        return self.structured_data
-    
-    def get_unstructured_data(self):
-        return self.unstructured_data
-    
-    def get_pt_data(self):
-        return self.pt_data
+
+    def __del__(self):
+        # save summary and key facts
+        self.update_summary()
+        self.update_key_facts()
+
+        # split messages in msg_chain into messages (HumanMessage) and responses (AIMessage)
+        for m in self.msg_chain:
+            if isinstance(m, HumanMessage):
+                self.structured_data["messages"].append(m.content.strip())
+            elif isinstance(m, AIMessage):
+                self.structured_data["responses"].append(m.content.strip())
+        
+        # limit messages and responses to 20
+        self.structured_data["messages"] = self.structured_data["messages"][-20:]
+        self.structured_data["responses"] = self.structured_data["responses"][-20:]
+
+        # update database
+        self.update_db(self.structured_data, self.unstructured_data)
+
+        self.db.close()
     
     def invoke_chat(self, messages: list[BaseMessage], ret_type: str):
+        """ Used to invoke the chat model and return the result in the specified format """
         if ret_type == "json":
             chain = self.chat | JsonOutputParser()
             result = chain.invoke(messages)
@@ -93,28 +107,26 @@ class HumanExternalDataStore:
             return result
         else:
             raise ValueError("Invalid return type")
-        
-    def update_structured_data(self, structured_data: StructuredData):
-        self.structured_data = structured_data
-        self.pt_data = PTData(
-            structured_data=self.structured_data, 
-            unstructured_data=self.unstructured_data)
     
-    def update_unstructured_data(self, unstructured_data: UnstructuredData):
+    def update_db(self, structured_data: StructuredData, unstructured_data: UnstructuredData):
+        """First update unstructured data, then structured data, then save to db"""
+        self.structured_data = structured_data
         self.unstructured_data = unstructured_data
         self.pt_data = PTData(
             structured_data=self.structured_data, 
-            unstructured_data=self.unstructured_data)
-    
-    def update_db(self):
+            unstructured_data=self.unstructured_data
+        )
+
         self.db.collection("convos").document(self.user_id).update({
-            "age": self.structured_data["age"],
-            "fname": self.structured_data["fname"],
-            "lname": self.structured_data["lname"],
             "messages": self.structured_data["messages"],
             "responses": self.structured_data["responses"],
             "summary": self.structured_data["summary"],
-            "last_updated": self.structured_data["last_updated"]
+        })
+
+        # update key facts in 
+        self.db.collection("convos").document(self.user_id).update({
+            "key_facts": self.unstructured_data["key_facts"],
+            "static_data": self.unstructured_data["static_data"]
         })
 
     def init_facts(self):
@@ -124,6 +136,7 @@ class HumanExternalDataStore:
         # Get the document reference for key facts from the user's document
         user_doc = self.db.collection("convos").document(self.user_id).get().to_dict()
         kf_ref = user_doc.get('kf_ref')
+        self.kf_ref = kf_ref
         
         # Retrieve the key facts document using the reference
         if kf_ref:
@@ -135,9 +148,8 @@ class HumanExternalDataStore:
             return None
 
 
-
     def update_summary(self):
-        " Update the summary within the PT Data points"
+        "Called by API when summary needs to be updated (end of question-answer) Update the summary within the PT Data points"
         # update the summary
         sum_upd = HumanMessage(content="""
             Based on the the following message chain and summary, update the summary.
@@ -156,7 +168,7 @@ class HumanExternalDataStore:
         self.cur_summary = self.structured_data["summary"]
 
     def update_key_facts(self, human_input: str, ai_response: str):
-        " Update the key facts within the PT Data points"
+        "Called by API when key facts need to be updated (end of question-answer) Update the key facts within the PT Data points"
         # update the messages and responses and limit to 20
         
         kf_upd = HumanMessage(content="""
