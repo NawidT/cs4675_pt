@@ -1,28 +1,19 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 from typing_extensions import TypedDict
-from PIL import Image
 from langchain_openai.chat_models import ChatOpenAI
-from langchain_core.output_parsers import JsonOutputParser, PydanticOutputParser, StrOutputParser
-from langchain_core.prompts import PromptTemplate
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
-
+from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 
 # TECHNICAL DECISION: support only one conversation per user    
 class StructuredData(TypedDict):
     messages: list[str] # store last 20 messages
     responses: list[str] # store last 20 responses
     summary: str # summary of the conversation
-    last_updated: str # last updated timestamp
-    fname: str
-    lname: str
-    age: int
-    prev_static_data: dict[str, Image.Image] # previous static data of the conversation
 
 # TECHNICAL DECISION: focused on data made/changed this session and for short term use
 class UnstructuredData(TypedDict):
     key_facts: dict[str, str] # key facts of the conversation
-    static_data: dict[str, Image.Image] # static data of the conversation
 
 class PTData(TypedDict):
     structured_data: StructuredData
@@ -35,16 +26,14 @@ class HumanExternalDataStore:
         self.db = firestore.client()
         self.msg_chain = []
         self.chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-        self.cur_key_facts = {}
-        self.cur_summary = ""
+        self.kf_ref = ""
 
         # use fname and lname to get user id
         try:
-            self.user_id = self.db.collection("convos").where(
-                "fname", "==", user_fname
-            ).where(
-                "lname", "==", user_lname
-            ).get()[0].id
+            self.user_id = self.db.collection("convos") \
+                .where(filter=firestore.firestore.FieldFilter("fname", "==", user_fname)) \
+                .where(filter=firestore.firestore.FieldFilter("lname", "==", user_lname)) \
+                .get()[0].id
             print(f"User {user_fname} {user_lname} found with id {self.user_id}")
         except:
             raise ValueError("User not found")
@@ -65,9 +54,10 @@ class HumanExternalDataStore:
         )
 
         # load key facts
-        kf = self.init_facts()
-        if kf:
-            self.unstructured_data["kf_ref"] = kf
+        self.kf_ref = self.init_facts()
+        if not self.kf_ref:
+            raise ValueError("Key facts not found")
+            
 
         self.pt_data = PTData(
             structured_data=self.structured_data, 
@@ -90,7 +80,7 @@ class HumanExternalDataStore:
         self.structured_data["messages"] = self.structured_data["messages"][-20:]
         self.structured_data["responses"] = self.structured_data["responses"][-20:]
 
-        # update database
+        # save to database
         self.update_db(self.structured_data, self.unstructured_data)
 
         self.db.close()
@@ -99,8 +89,21 @@ class HumanExternalDataStore:
         """ Used to invoke the chat model and return the result in the specified format """
         if ret_type == "json":
             chain = self.chat | JsonOutputParser()
-            result = chain.invoke(messages)
-            return result
+            try:
+                result = chain.invoke(messages)
+                print(result)
+                if isinstance(result, dict):
+                    return result
+                else:
+                    raise ValueError("Invalid JSON object")
+            except Exception as e:
+                reformat_msg = HumanMessage(content=f"""
+                    Please reformat {result} as a valid JSON object.
+                    RETURN ONLY THE REFORMATTED JSON OBJECT
+                """)
+                second_try = self.chat.invoke([reformat_msg])
+                print(second_try)
+                return second_try
         elif ret_type == "str":
             chain = self.chat | StrOutputParser()
             result = chain.invoke(messages)
@@ -123,10 +126,11 @@ class HumanExternalDataStore:
             "summary": self.structured_data["summary"],
         })
 
-        # update key facts in 
-        self.db.collection("convos").document(self.user_id).update({
-            "key_facts": self.unstructured_data["key_facts"],
-            "static_data": self.unstructured_data["static_data"]
+        # update key facts in kf_ref
+        user_doc = self.db.collection("convos").document(self.user_id).get().to_dict()
+        kf_ref = user_doc.get('kf_ref')
+        kf_ref.update({
+            "key_facts": self.unstructured_data["key_facts"]
         })
 
     def init_facts(self):
@@ -136,7 +140,6 @@ class HumanExternalDataStore:
         # Get the document reference for key facts from the user's document
         user_doc = self.db.collection("convos").document(self.user_id).get().to_dict()
         kf_ref = user_doc.get('kf_ref')
-        self.kf_ref = kf_ref
         
         # Retrieve the key facts document using the reference
         if kf_ref:
@@ -164,27 +167,26 @@ class HumanExternalDataStore:
 
         # invoke chat
         self.structured_data["summary"] = self.invoke_chat(self.msg_chain + [sum_upd], "str")
-        self.msg_chain.remove(sum_upd)
-        self.cur_summary = self.structured_data["summary"]
+        
 
-    def update_key_facts(self, human_input: str, ai_response: str):
+    def update_key_facts(self):
         "Called by API when key facts need to be updated (end of question-answer) Update the key facts within the PT Data points"
         # update the messages and responses and limit to 20
         
         kf_upd = HumanMessage(content="""
             Based on the the following message chain and key facts, update the key facts.
+            Summary: {summary}      
             Key Facts: {key_facts}
-            Here is the message chain: {messages}
-            RETURN ONLY THE KEY FACTS AS A JSON
+            RETURN ONLY THE KEY FACTS AS A LIST OF KEY VALUE PAIRS
         """.format(
+            summary=self.structured_data["summary"],
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])), 
-            messages=self.msg_chain
         ))
 
         # invoke chat
         self.unstructured_data["key_facts"] = self.invoke_chat(self.msg_chain + [kf_upd], "json")
-        self.msg_chain.remove(kf_upd)
-        self.cur_key_facts = self.unstructured_data["key_facts"]
+        print(self.unstructured_data["key_facts"])
+        
         
     
 HumanExternalDataStore("Bukayo", "Saka")
