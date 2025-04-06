@@ -173,11 +173,6 @@ class HumanExternalDataStore:
         self.unstructured_data["key_facts"] = self.invoke_chat(self.msg_chain + [kf_upd], "json")
         self.msg_chain.remove(kf_upd)
         self.cur_key_facts = self.unstructured_data["key_facts"]
-
-
-
-
-        
         
     
 HumanExternalDataStore("Bukayo", "Saka")
