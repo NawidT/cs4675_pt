@@ -50,15 +50,26 @@ const ChatPage = () => {
     setIsLoading(true);
 
     try {
-      // Get AI response using the LLM service
-      const response: LLMResponse = await llmService.sendMessage(inputMessage);
-      
-      const aiMessage: Message = {
-        text: response.text,
-        isUser: false,
-        timestamp: response.timestamp,
-      };
+      // Get AI response by calling localhost 5000/chat and sending the message, userfname, and userlname
+      const response = await fetch('http://localhost:5000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: inputMessage,
+          userfname: 'Bukayo',
+          userlname: 'Saka',
+        })
+      });
 
+      const data = await response.json();
+      const aiMessage: Message = {
+        text: data.response,
+        isUser: false,
+        timestamp: new Date(),
+      };
+      
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       console.error('Error getting AI response:', error);

@@ -1,8 +1,36 @@
-import { Box, Button, Typography, Container } from '@mui/material';
+import { Box, Button, Typography, Container, Dialog, DialogTitle, DialogContent, TextField, DialogActions } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 const LandingPage = () => {
   const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+
+  const handleClickOpen = () => {
+    setOpen(true);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+  const handleSubmit = async () => {
+    if (firstName.trim() && lastName.trim()) {
+      // call localhost:5000/init with firstName and lastName
+      const response = await fetch('http://localhost:5000/init', {
+        method: 'POST',
+        body: JSON.stringify({ firstName, lastName }),
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        navigate('/chat');
+      } else {
+        console.error('Failed to initialize user');
+      }
+    }
+  };
 
   return (
     <Box
@@ -144,7 +172,7 @@ const LandingPage = () => {
         <Button
           variant="contained"
           size="large"
-          onClick={() => navigate('/chat')}
+          onClick={handleClickOpen}
           sx={{
             py: 2,
             px: 6,
@@ -159,6 +187,37 @@ const LandingPage = () => {
         >
           Start Your Journey
         </Button>
+
+        {/* User Information Dialog */}
+        <Dialog open={open} onClose={handleClose}>
+          <DialogTitle>Before we begin...</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+              <TextField
+                autoFocus
+                label="First Name"
+                fullWidth
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+              <TextField
+                label="Last Name"
+                fullWidth
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleClose}>Cancel</Button>
+            <Button 
+              onClick={handleSubmit}
+              disabled={!firstName.trim() || !lastName.trim()}
+            >
+              Continue
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Box>
   );
