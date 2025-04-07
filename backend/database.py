@@ -21,6 +21,9 @@ class PTData(TypedDict):
     structured_data: StructuredData
     unstructured_data: UnstructuredData
 
+cred = credentials.Certificate("backend/serviceAccountKey.json")
+firebase_admin.initialize_app(cred)
+
 
 # pydantic model with reasoning and is_health_related
 class Guardrail(BaseModel):
@@ -29,8 +32,6 @@ class Guardrail(BaseModel):
 
 class HumanExternalDataStore:
     def __init__(self, user_fname: str, user_lname: str):
-        cred = credentials.Certificate("backend/serviceAccountKey.json")
-        firebase_admin.initialize_app(cred)
         self.db = firestore.client()
         self.msg_chain = []
         self.chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -68,8 +69,8 @@ class HumanExternalDataStore:
 
         # populate msg_chain
         for i, m in enumerate(self.structured_data["messages"]):
-            self.msg_chain.insert(0, HumanMessage(content=m))
-            self.msg_chain.insert(0, AIMessage(content=self.structured_data["responses"][i]))
+            self.msg_chain.append(HumanMessage(content=m))
+            self.msg_chain.append(AIMessage(content=self.structured_data["responses"][i]))
         
         # manually create unstructured data
         self.unstructured_data = UnstructuredData(

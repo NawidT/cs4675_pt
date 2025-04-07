@@ -1,12 +1,14 @@
 import { Box, Button, Typography, Container, Dialog, DialogTitle, DialogContent, TextField, DialogActions } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
+import { UserContext } from '../App';
 
 const LandingPage = () => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const { setUserfname, setUserlname, setHumanMessages, setAiResponses } = useContext(UserContext);
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -21,10 +23,20 @@ const LandingPage = () => {
       // call localhost:5000/init with firstName and lastName
       const response = await fetch('http://localhost:5000/init', {
         method: 'POST',
-        body: JSON.stringify({ firstName, lastName }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userfname: firstName,
+          userlname: lastName,
+        }),
       });
       const data = await response.json();
       if (data.status === 'success') {
+        setUserfname(firstName);
+        setUserlname(lastName);
+        setHumanMessages(data.human_messages);
+        setAiResponses(data.ai_responses);
         navigate('/chat');
       } else {
         console.error('Failed to initialize user');

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   TextField,
@@ -18,6 +18,9 @@ import {
   FullscreenExit as FullscreenExitIcon,
 } from '@mui/icons-material';
 import { GeminiService, LLMResponse } from '../services/llmService';
+import { UserContext } from '../App';
+import { useContext } from 'react';
+
 
 interface Message {
   text: string;
@@ -26,19 +29,39 @@ interface Message {
 }
 
 const ChatPage = () => {
+  const { userfname, userlname, human_messages, ai_responses } = useContext(UserContext);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const theme = useTheme();
 
+  useEffect(() => {
+    // combine human_messages and ai_responses into messages, alternating between user and ai
+    const combinedMessages: Message[] = [];
+    for (let i = 0; i < human_messages.length; i++) {
+      combinedMessages.push({
+        text: human_messages[i],
+        isUser: true,
+        timestamp: new Date(),
+      });
+      combinedMessages.push({
+        text: ai_responses[i],
+        isUser: false,
+        timestamp: new Date(),
+      });
+    }
+    setMessages(combinedMessages);
+  }, [human_messages, ai_responses]);
+  
+
   // Initialize Gemini service with API key from environment variables
-  const llmService = new GeminiService(import.meta.env.VITE_GEMINI_API_KEY);
+  // const llmService = new GeminiService(import.meta.env.VITE_GEMINI_API_KEY);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
-    // Add user message
+    // Add user message for display purposes
     const userMessage: Message = {
       text: inputMessage,
       isUser: true,
@@ -58,8 +81,8 @@ const ChatPage = () => {
         },
         body: JSON.stringify({
           message: inputMessage,
-          userfname: 'Bukayo',
-          userlname: 'Saka',
+          userfname: userfname,
+          userlname: userlname,
         })
       });
 
@@ -81,6 +104,11 @@ const ChatPage = () => {
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
+      // scroll to bottom of chat
+      const chatContainer = document.getElementById('chat-container');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
       setIsLoading(false);
     }
   };
@@ -210,20 +238,44 @@ const ChatPage = () => {
             bgcolor: 'background.paper',
           }}
         >
-          {/* Content Header */}
+          {/* Content Header and End Session Button */}
           <Paper
             elevation={2}
             sx={{
               p: 2,
               bgcolor: 'background.paper',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}
           >
-            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-              Generated Content
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <IconButton
+                onClick={() => setIsFullscreen(true)}
+                color="primary"
+                sx={{ mr: 2 }}
+              >
+                <FullscreenExitIcon />
+              </IconButton>
+              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                Generated Content
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={() => {
+                fetch('http://localhost:5000/close', {
+                  method: 'GET'
+                });
+                window.location.href = '/';
+              }}
+            >
+              End Session
+            </Button>
           </Paper>
 
-          {/* Content Area */}
+          {/* Content Area */}  
           <Box
             sx={{
               flex: 1,
