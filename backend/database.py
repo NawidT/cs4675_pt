@@ -29,6 +29,7 @@ class HumanExternalDataStore:
         self.kf_ref = ""
 
         # use fname and lname to get user id
+        print("retrieving user id...")
         try:
             self.user_id = self.db.collection("convos") \
                 .where(filter=firestore.firestore.FieldFilter("fname", "==", user_fname)) \
@@ -36,11 +37,26 @@ class HumanExternalDataStore:
                 .get()[0].id
             print(f"User {user_fname} {user_lname} found with id {self.user_id}")
         except:
-            raise ValueError("User not found")
+            # create new user
+            # Create a new document in keyfacts collection
+            self.kf_ref = self.db.collection("keyfacts").document()
+            # Initialize the key_facts document with empty data
+            self.kf_ref.set({})
+            # Create a new user document in convos collection with reference to keyfacts
+            user_ref = self.db.collection("convos").document()
+            user_ref.set({
+                "fname": user_fname,
+                "lname": user_lname,
+                "messages": [],
+                "responses": [],
+                "summary": "",
+                "kf_ref": self.kf_ref
+            })
+            self.user_id = user_ref.id
+            print(f"New user {user_fname} {user_lname} created")
         
         # fetch data from db
         self.structured_data = self.db.collection("convos").document(self.user_id).get().to_dict()
-        print(self.structured_data)
 
         # populate msg_chain
         for i, m in enumerate(self.structured_data["messages"]):
@@ -54,22 +70,24 @@ class HumanExternalDataStore:
         )
 
         # load key facts
-        self.kf_ref = self.init_facts()
+        self.kf_ref, self.unstructured_data["key_facts"] = self.init_facts()
         if not self.kf_ref:
             raise ValueError("Key facts not found")
-            
 
         self.pt_data = PTData(
             structured_data=self.structured_data, 
             unstructured_data=self.unstructured_data
         )
 
-    def __del__(self):
+    def close(self):
         # save summary and key facts
         self.update_summary()
         self.update_key_facts()
 
         # split messages in msg_chain into messages (HumanMessage) and responses (AIMessage)
+        # reset messages and responses to ensure double entries into Firestore dont happen
+        self.structured_data["messages"] = []
+        self.structured_data["responses"] = []
         for m in self.msg_chain:
             if isinstance(m, HumanMessage):
                 self.structured_data["messages"].append(m.content.strip())
@@ -81,37 +99,47 @@ class HumanExternalDataStore:
         self.structured_data["responses"] = self.structured_data["responses"][-20:]
 
         # save to database
-        self.update_db(self.structured_data, self.unstructured_data)
+        self.save_to_db(self.structured_data, self.unstructured_data)
 
         self.db.close()
     
     def invoke_chat(self, messages: list[BaseMessage], ret_type: str):
         """ Used to invoke the chat model and return the result in the specified format """
         if ret_type == "json":
-            chain = self.chat | JsonOutputParser()
+            parser = JsonOutputParser()
             try:
-                result = chain.invoke(messages)
-                print(result)
-                if isinstance(result, dict):
-                    return result
-                else:
-                    raise ValueError("Invalid JSON object")
+                result = self.chat.invoke(messages)
+                parsed_result = parser.invoke(result)
+                return parsed_result
             except Exception as e:
                 reformat_msg = HumanMessage(content=f"""
-                    Please reformat {result} as a valid JSON object.
+                    Please reformat {result.content.strip()} as a valid JSON object.
                     RETURN ONLY THE REFORMATTED JSON OBJECT
                 """)
                 second_try = self.chat.invoke([reformat_msg])
-                print(second_try)
-                return second_try
+                second_parsed = parser.invoke(second_try)
+                return second_parsed
         elif ret_type == "str":
             chain = self.chat | StrOutputParser()
             result = chain.invoke(messages)
             return result
         else:
             raise ValueError("Invalid return type")
+        
+    def init_facts(self):
+        """
+        Retrieves key facts document from Firestore if it exists.
+        """
+        # Get the document reference for key facts from the user's document
+        user_doc = self.db.collection("convos").document(self.user_id).get().to_dict()
+        kf_ref = user_doc.get('kf_ref')
+        
+        # Retrieve the key facts document using the reference
+        key_facts = kf_ref.get().to_dict()
+        print("Retrieved key facts:", key_facts)
+        return kf_ref, key_facts
     
-    def update_db(self, structured_data: StructuredData, unstructured_data: UnstructuredData):
+    def save_to_db(self, structured_data: StructuredData, unstructured_data: UnstructuredData):
         """First update unstructured data, then structured data, then save to db"""
         self.structured_data = structured_data
         self.unstructured_data = unstructured_data
@@ -127,29 +155,9 @@ class HumanExternalDataStore:
         })
 
         # update key facts in kf_ref
-        user_doc = self.db.collection("convos").document(self.user_id).get().to_dict()
-        kf_ref = user_doc.get('kf_ref')
-        kf_ref.update({
-            "key_facts": self.unstructured_data["key_facts"]
+        self.kf_ref.update({
+            k: v for k, v in self.unstructured_data["key_facts"].items()
         })
-
-    def init_facts(self):
-        """
-        Retrieves key facts document from Firestore if it exists.
-        """
-        # Get the document reference for key facts from the user's document
-        user_doc = self.db.collection("convos").document(self.user_id).get().to_dict()
-        kf_ref = user_doc.get('kf_ref')
-        
-        # Retrieve the key facts document using the reference
-        if kf_ref:
-            key_facts = kf_ref.get().to_dict()
-            print("Retrieved key facts:", key_facts)
-            return key_facts
-        else:
-            print("No key facts reference found for this user")
-            return None
-
 
     def update_summary(self):
         "Called by API when summary needs to be updated (end of question-answer) Update the summary within the PT Data points"
@@ -162,31 +170,64 @@ class HumanExternalDataStore:
             RETURN ONLY THE SUMMARY AS A STRING
         """.format(
             summary=self.structured_data["summary"], 
-            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()]))
+            key_facts=(", ".join([str(k)+" : "+str(v)  for k,v in self.unstructured_data["key_facts"].items()]))
         ))
 
         # invoke chat
         self.structured_data["summary"] = self.invoke_chat(self.msg_chain + [sum_upd], "str")
         
-
     def update_key_facts(self):
         "Called by API when key facts need to be updated (end of question-answer) Update the key facts within the PT Data points"
         # update the messages and responses and limit to 20
         
         kf_upd = HumanMessage(content="""
             Based on the the following message chain and key facts, update the key facts.
-            Summary: {summary}      
-            Key Facts: {key_facts}
-            RETURN ONLY THE KEY FACTS AS A LIST OF KEY VALUE PAIRS
+            Be efficient, only update the key facts that have changed. Have as few changes as possible.
+            Both the key and value are strings.
+            Key Facts so far: {key_facts}
+            RETURN ONLY THE KEY FACTS AS A DICTIONARY OF KEY VALUE PAIRS
         """.format(
-            summary=self.structured_data["summary"],
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])), 
         ))
 
         # invoke chat
         self.unstructured_data["key_facts"] = self.invoke_chat(self.msg_chain + [kf_upd], "json")
-        print(self.unstructured_data["key_facts"])
-        
+
+    def call_chat(self, human_message: str):
+        """
+        Used to call the chat model and return the result in the specified format
+        """
+        # add human message to msg_chain
+        human_msg = HumanMessage(content="""
+            Here is the key facts: {key_facts}
+            Here is the summary: {summary}
+            Here is the human message: {human_message}
+            Keep your answer short, concise and to the point.
+        """.format(
+            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
+            summary=self.structured_data["summary"],
+            human_message=human_message
+        ))
+        print("invoking chat...")
+        # invoke chat
+        ai_msg = self.invoke_chat(self.msg_chain + [human_msg], "str")
+        # add ai message to msg_chain
+        human_msg_simplified = HumanMessage(content=human_message)
+        self.msg_chain.append(human_msg_simplified)
+        self.msg_chain.append(AIMessage(content=ai_msg))
+
+        # update structured data
+        self.structured_data["messages"].append(human_message)
+        self.structured_data["responses"].append(ai_msg)
+
+        # update unstructured data
+        self.update_summary()
+        self.update_key_facts()
+        return ai_msg
         
     
-HumanExternalDataStore("Bukayo", "Saka")
+# db = HumanExternalDataStore("Nawid", "Tahmid")
+
+# db.call_chat("What are some tips I can use to improve my sleep?")
+
+# del db
