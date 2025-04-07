@@ -2,8 +2,10 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from typing_extensions import TypedDict
 from langchain_openai.chat_models import ChatOpenAI
-from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
+from langchain_core.output_parsers import JsonOutputParser, StrOutputParser, PydanticOutputParser
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
+from pydantic import BaseModel
+
 
 # TECHNICAL DECISION: support only one conversation per user    
 class StructuredData(TypedDict):
@@ -18,6 +20,12 @@ class UnstructuredData(TypedDict):
 class PTData(TypedDict):
     structured_data: StructuredData
     unstructured_data: UnstructuredData
+
+
+# pydantic model with reasoning and is_health_related
+class Guardrail(BaseModel):
+    reasoning: str
+    is_health_related: bool
 
 class HumanExternalDataStore:
     def __init__(self, user_fname: str, user_lname: str):
@@ -102,6 +110,29 @@ class HumanExternalDataStore:
         self.save_to_db(self.structured_data, self.unstructured_data)
 
         self.db.close()
+
+    def chat_guardrails(self, human_message: str):
+        """
+        Used to check if the human message is within guardrails of medical/fitness/nutrition advice
+        """
+        if human_message == "":
+            return False
+
+        # invoke chat
+        chain = self.chat | PydanticOutputParser(pydantic_object=Guardrail)
+        result = chain.invoke([HumanMessage(content="""
+            Determine if the following message is within the realms of medical/fitness/nutrition advice.
+            Message: {human_message}
+            Return a JSON object with the following fields:
+            - reasoning: a short explanation of your reasoning
+            - is_health_related: True if the message is within the realms of medical/fitness/nutrition advice, False otherwise
+        """.format(human_message=human_message))])
+        print(result)
+        if isinstance(result, Guardrail):
+            return result.is_health_related
+        else:
+            return False
+
     
     def invoke_chat(self, messages: list[BaseMessage], ret_type: str):
         """ Used to invoke the chat model and return the result in the specified format """
@@ -154,10 +185,11 @@ class HumanExternalDataStore:
             "summary": self.structured_data["summary"],
         })
 
-        # update key facts in kf_ref
-        self.kf_ref.update({
-            k: v for k, v in self.unstructured_data["key_facts"].items()
-        })
+        # update key facts in kf_ref'
+        if self.unstructured_data["key_facts"] != {}:
+            self.kf_ref.update({
+                k: v for k, v in self.unstructured_data["key_facts"].items()
+            })
 
     def update_summary(self):
         "Called by API when summary needs to be updated (end of question-answer) Update the summary within the PT Data points"
@@ -167,6 +199,7 @@ class HumanExternalDataStore:
             Make as few changes to the summary, keep the key pieces of information still there.
             Summary: {summary}                 
             Here are the key facts as key value pairs: {key_facts}. 
+            If there are nothing meaningful, return an empty string.
             RETURN ONLY THE SUMMARY AS A STRING
         """.format(
             summary=self.structured_data["summary"], 
@@ -183,7 +216,7 @@ class HumanExternalDataStore:
         kf_upd = HumanMessage(content="""
             Based on the the following message chain and key facts, update the key facts.
             Be efficient, only update the key facts that have changed. Have as few changes as possible.
-            Both the key and value are strings.
+            Both the key and value are strings. If there are nothing meaningful, return an empty dictionary.
             Key Facts so far: {key_facts}
             RETURN ONLY THE KEY FACTS AS A DICTIONARY OF KEY VALUE PAIRS
         """.format(
@@ -197,6 +230,13 @@ class HumanExternalDataStore:
         """
         Used to call the chat model and return the result in the specified format
         """
+        # handle guardrails first
+        print("checking guardrails...")
+        guardrail_health_related = self.chat_guardrails(human_message)
+        print(guardrail_health_related)
+        if not guardrail_health_related:
+            return "The message sent is not within the realms of medical/fitness/nutrition advice. Please rephrase your question."
+
         # add human message to msg_chain
         human_msg = HumanMessage(content="""
             Here is the key facts: {key_facts}
