@@ -2,10 +2,12 @@ from flask import Flask, request, jsonify
 from database import HumanExternalDataStore
 import os
 from dotenv import load_dotenv
+from flask_cors import CORS
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
+CORS(app)
 user_creds = {
     "fname": "",
     "lname": "",
@@ -28,8 +30,17 @@ def init():
     userlname = data.get('userlname')
     user_creds["fname"] = userfname
     user_creds["lname"] = userlname
-    user_creds["db"] = HumanExternalDataStore(userfname, userlname)
-    return jsonify({"status": "success", "message": "Database connection initialized"}), 200
+    if user_creds["db"] is None:
+        user_creds["db"] = HumanExternalDataStore(userfname, userlname)
+    else:
+        del user_creds["db"]
+        user_creds["db"] = HumanExternalDataStore(userfname, userlname)
+    return jsonify({
+        "status": "success", 
+        "message": "Database connection initialized",
+        "human_messages": user_creds["db"].structured_data["messages"],
+        "ai_responses": user_creds["db"].structured_data["responses"]
+    }), 200
 
 
 @app.route('/chat', methods=['POST'])
