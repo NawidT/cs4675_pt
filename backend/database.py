@@ -12,11 +12,11 @@ class StructuredData(TypedDict):
     messages: list[str] # store last 20 messages
     responses: list[str] # store last 20 responses
     summary: str # summary of the conversation
-
+    meal_plan: str # meal plan of the conversation
 # TECHNICAL DECISION: focused on data made/changed this session and for short term use
 class UnstructuredData(TypedDict):
     key_facts: dict[str, str] # key facts of the conversation
-
+    
 class PTData(TypedDict):
     structured_data: StructuredData
     unstructured_data: UnstructuredData
@@ -36,7 +36,6 @@ class HumanExternalDataStore:
         self.msg_chain = []
         self.chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         self.kf_ref = ""
-
         # use fname and lname to get user id
         print("retrieving user id...")
         try:
@@ -59,7 +58,8 @@ class HumanExternalDataStore:
                 "messages": [],
                 "responses": [],
                 "summary": "",
-                "kf_ref": self.kf_ref
+                "kf_ref": self.kf_ref,
+                "meal_plan": ""
             })
             self.user_id = user_ref.id
             print(f"New user {user_fname} {user_lname} created")
@@ -74,8 +74,7 @@ class HumanExternalDataStore:
         
         # manually create unstructured data
         self.unstructured_data = UnstructuredData(
-            key_facts={},
-            static_data={}
+            key_facts={}
         )
 
         # load key facts
@@ -243,7 +242,7 @@ class HumanExternalDataStore:
             Here is the key facts: {key_facts}
             Here is the summary: {summary}
             Here is the human message: {human_message}
-            Keep your answer short, concise and to the point.
+            Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
         """.format(
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
             summary=self.structured_data["summary"],
@@ -265,7 +264,39 @@ class HumanExternalDataStore:
         self.update_summary()
         self.update_key_facts()
         return ai_msg
-        
+    
+    def determine_if_meal_plan_change_needed(self, human_message: str):
+        """
+        Used to determine if the meal plan needs to be changed using key facts, summary and last 8 messages
+        """
+        # invoke chat
+        chain = self.chat | PydanticOutputParser(pydantic_object=bool)
+        result = chain.invoke([HumanMessage(content="""
+            Based on the the following key facts, summary and last 8 messages, determine if the meal plan needs to be changed.
+            Key Facts: {key_facts}
+            Summary: {summary}
+            Last 8 Messages: {last_8_messages}
+            RETURN ONLY TRUE OR FALSE
+        """.format(
+            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
+            summary=self.structured_data["summary"],
+            last_8_messages=(", ".join([m.content for m in self.msg_chain[-8:]]))
+        ))])
+        return result
+
+    def change_meal_plan(self, human_message: str):
+        """
+        If the meal plan needs to be changed, change it
+        """
+        # invoke chat
+        result = self.invoke_chat(self.msg_chain + [HumanMessage(content="""
+            Here is the exisitng meal plan: {meal_plan}
+        """.format(
+            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
+            summary=self.structured_data["summary"],
+            last_8_messages=(", ".join([m.content for m in self.msg_chain[-8:]]))
+        ))], "str")
+        return result
     
 # db = HumanExternalDataStore("Nawid", "Tahmid")
 

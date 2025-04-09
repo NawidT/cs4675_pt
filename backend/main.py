@@ -39,7 +39,8 @@ def init():
         "status": "success", 
         "message": "Database connection initialized",
         "human_messages": user_creds["db"].structured_data["messages"],
-        "ai_responses": user_creds["db"].structured_data["responses"]
+        "ai_responses": user_creds["db"].structured_data["responses"],
+        "meal_plan": user_creds["db"].structured_data['meal_plan']
     }), 200
 
 

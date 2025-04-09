@@ -23,3 +23,9 @@ Personal Transformer (PT) is an intelligent fitness companion that leverages RAG
 2. Set up Firebase credentials
 3. Install dependencies
 4. Run the application
+
+
+## Next Tasks/Features
+1. Create evaluation ROUGE notebook
+2. Choose between multiple LLM's (OpenAI, Claude, Gemeni)
+3. Handle generated content within RAG loop
