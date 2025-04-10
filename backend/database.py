@@ -183,6 +183,7 @@ class HumanExternalDataStore:
             "messages": self.structured_data["messages"],
             "responses": self.structured_data["responses"],
             "summary": self.structured_data["summary"],
+            "meal_plan": self.structured_data["meal_plan"]
         })
 
         # update key facts in kf_ref'
@@ -195,15 +196,17 @@ class HumanExternalDataStore:
         "Called by API when summary needs to be updated (end of question-answer) Update the summary within the PT Data points"
         # update the summary
         sum_upd = HumanMessage(content="""
-            Based on the the following message chain and summary, update the summary.
+            Based on the the following summary, key facts and last 8 messages, update the summary.
             Make as few changes to the summary, keep the key pieces of information still there.
-            Summary: {summary}                 
-            Here are the key facts as key value pairs: {key_facts}. 
-            If there are nothing meaningful, return an empty string.
+            If the summary is empty/meaningless, create a new summary. \n
+            Summary: {summary} \n
+            Key Facts: {key_facts}. \n
+            Here are the last 8 messages: {last_8_messages} \n
             RETURN ONLY THE SUMMARY AS A STRING
         """.format(
             summary=self.structured_data["summary"], 
-            key_facts=(", ".join([str(k)+" : "+str(v)  for k,v in self.unstructured_data["key_facts"].items()]))
+            key_facts=(", ".join([str(k)+" : "+str(v)  for k,v in self.unstructured_data["key_facts"].items()])),
+            last_8_messages=("|||".join([ "Message "+str(i+1)+": "+m.content  for i, m in enumerate(self.msg_chain[-8:])]))
         ))
 
         # invoke chat
@@ -242,11 +245,14 @@ class HumanExternalDataStore:
             Here is the key facts: {key_facts}
             Here is the summary: {summary}
             Here is the human message: {human_message}
+            Here is the meal plan: {meal_plan}
             Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
+            If the meal plan needs to be changed, just mention that "The meal plan needs to be changed" and nothing else.             
         """.format(
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
             summary=self.structured_data["summary"],
-            human_message=human_message
+            human_message=human_message,
+            meal_plan=self.structured_data["meal_plan"]
         ))
         print("invoking chat...")
         # invoke chat
@@ -263,40 +269,68 @@ class HumanExternalDataStore:
         # update unstructured data
         self.update_summary()
         self.update_key_facts()
+
+        # check if meal plan needs to be changed
+        meal_plan_change_needed = self.determine_if_meal_plan_change_needed()
+        if meal_plan_change_needed:
+            self.change_meal_plan()
+
         return ai_msg
     
-    def determine_if_meal_plan_change_needed(self, human_message: str):
+    def determine_if_meal_plan_change_needed(self):
         """
         Used to determine if the meal plan needs to be changed using key facts, summary and last 8 messages
         """
-        # invoke chat
-        chain = self.chat | PydanticOutputParser(pydantic_object=bool)
-        result = chain.invoke([HumanMessage(content="""
-            Based on the the following key facts, summary and last 8 messages, determine if the meal plan needs to be changed.
+        # print chat prompt
+        print("""
+            Based on the the following, determine if the meal plan needs to be changed.
             Key Facts: {key_facts}
             Summary: {summary}
-            Last 8 Messages: {last_8_messages}
-            RETURN ONLY TRUE OR FALSE
+            Existing Meal Plan: {meal_plan}
+            Here are the last 8 messages: {last_8_messages}
+            RETURN ONLY True OR False
         """.format(
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
             summary=self.structured_data["summary"],
-            last_8_messages=(", ".join([m.content for m in self.msg_chain[-8:]]))
+            meal_plan=self.structured_data["meal_plan"],
+            last_8_messages=("|||".join([ "Message "+str(i+1)+": "+m.content  for i, m in enumerate(self.msg_chain[-8:])]))
+        ))
+
+        # invoke chat
+        result = self.chat.invoke([HumanMessage(content="""
+            Based on the the following, determine if the meal plan needs to be changed.
+            Key Facts: {key_facts}
+            Summary: {summary}
+            Existing Meal Plan: {meal_plan}
+            RETURN ONLY True OR False
+        """.format(
+            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
+            summary=self.structured_data["summary"],
+            meal_plan=self.structured_data["meal_plan"]
         ))])
+        print(result.content.strip())
+        result = True if result.content.strip() == "True" else False
         return result
 
-    def change_meal_plan(self, human_message: str):
+    def change_meal_plan(self):
         """
         If the meal plan needs to be changed, change it
         """
         # invoke chat
-        result = self.invoke_chat(self.msg_chain + [HumanMessage(content="""
+        result = self.invoke_chat([HumanMessage(content="""
             Here is the exisitng meal plan: {meal_plan}
+            Here is the key facts: [ {key_facts} ]
+            Here is the summary: {summary}
+            Here is the last message: {last_message}
+            The meal plan needs to change. What should the new meal plan be?
+            RETURN ONLY THE NEW MEAL PLAN
         """.format(
+            meal_plan=self.structured_data["meal_plan"],
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
             summary=self.structured_data["summary"],
-            last_8_messages=(", ".join([m.content for m in self.msg_chain[-8:]]))
+            last_message=self.msg_chain[-1].content
         ))], "str")
-        return result
+        self.structured_data["meal_plan"] = result
     
 # db = HumanExternalDataStore("Nawid", "Tahmid")
 

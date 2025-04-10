@@ -8,7 +8,7 @@ const LandingPage = () => {
   const [open, setOpen] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const { setUserfname, setUserlname, setHumanMessages, setAiResponses } = useContext(UserContext);
+  const { setUserfname, setUserlname, setHumanMessages, setAiResponses, setMealPlan } = useContext(UserContext);
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -37,6 +37,7 @@ const LandingPage = () => {
         setUserlname(lastName);
         setHumanMessages(data.human_messages);
         setAiResponses(data.ai_responses);
+        setMealPlan(data.meal_plan);
         navigate('/chat');
       } else {
         console.error('Failed to initialize user');

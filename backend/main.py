@@ -75,7 +75,11 @@ def chat():
         # Process the message and get response
         ai_response = user_creds["db"].call_chat(message)
         
-        return jsonify({"response": ai_response}), 200
+        return jsonify({
+            "status": "success",
+            "response": ai_response,
+            "meal_plan": user_creds["db"].structured_data["meal_plan"]
+        }), 200
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
