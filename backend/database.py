@@ -61,17 +61,19 @@ def grab_db_user_data(user_fname: str, user_lname: str):
     user_ref = db.collection("convos")\
         .where(filter=firestore.firestore.FieldFilter("fname", "==", user_fname))\
         .where(filter=firestore.firestore.FieldFilter("lname", "==", user_lname))\
-        .get()[0]
+        .get()
     
-    if len(user_ref) == 0:
+    if user_ref == []:
         return create_db_user(user_fname, user_lname)
+    
+    # get first user data
+    user_ref = user_ref[0]
     
     # get key facts
     kf_ref = user_ref.get("kf_ref")
-    kf = db.collection("keyfacts").document(kf_ref).get().to_dict()
+    key_facts = kf_ref.get().to_dict()
 
     user_data = user_ref.to_dict()
-    key_facts = kf.to_dict()
 
     # close db
     db.close()
@@ -107,11 +109,14 @@ class HumanExternalDataStore:
         self.chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
         self.fname = user_fname
         self.lname = user_lname
+        self.structured_data = StructuredData(messages=[], responses=[], summary="", meal_plan="")
+        self.unstructured_data = UnstructuredData(key_facts={})
 
         # use fname and lname to get user id. Thats our authentication
         print("retrieving user id...")
-        self.unstructured_data = UnstructuredData(key_facts={})
         self.structured_data, self.unstructured_data["key_facts"] = grab_db_user_data(user_fname, user_lname)
+
+        print(self.structured_data)
 
         # populate msg_chain
         for i, m in enumerate(self.structured_data["messages"]):
