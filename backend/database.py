@@ -16,10 +16,6 @@ class StructuredData(TypedDict):
 # TECHNICAL DECISION: focused on data made/changed this session and for short term use
 class UnstructuredData(TypedDict):
     key_facts: dict[str, str] # key facts of the conversation
-    
-class PTData(TypedDict):
-    structured_data: StructuredData
-    unstructured_data: UnstructuredData
 
 cred = credentials.Certificate("backend/serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
@@ -30,62 +26,101 @@ class Guardrail(BaseModel):
     reasoning: str
     is_health_related: bool
 
+
+def create_db_user(user_fname: str, user_lname: str):
+    """
+    Stateless API. Used to create a new user in the database
+    """
+    db = firestore.client()
+
+    # create key facts
+    kf_ref = db.collection("keyfacts").document()
+    kf_ref.set({})
+
+    # create user
+    user_ref = db.collection("convos").document()
+    user_ref.set({
+        "fname": user_fname,
+        "lname": user_lname,
+        "messages": [],
+        "responses": [],
+        "summary": "",
+        "kf_ref": kf_ref,
+        "meal_plan": ""
+    })
+    # close db
+    db.close()
+
+    return user_ref.to_dict(), kf_ref.to_dict()
+
+def grab_db_user_data(user_fname: str, user_lname: str):
+    """
+    Stateless API. Used to grab user data from the database
+    """
+    db = firestore.client()
+    user_ref = db.collection("convos")\
+        .where(filter=firestore.firestore.FieldFilter("fname", "==", user_fname))\
+        .where(filter=firestore.firestore.FieldFilter("lname", "==", user_lname))\
+        .get()[0]
+    
+    if len(user_ref) == 0:
+        return create_db_user(user_fname, user_lname)
+    
+    # get key facts
+    kf_ref = user_ref.get("kf_ref")
+    kf = db.collection("keyfacts").document(kf_ref).get().to_dict()
+
+    user_data = user_ref.to_dict()
+    key_facts = kf.to_dict()
+
+    # close db
+    db.close()
+
+    # return user data and key facts
+    return user_data, key_facts
+
+def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) -> tuple[bool, str]:
+    """
+    Stateless API. Used to save user data to the database
+    """
+    db = firestore.client()
+    # find the user
+    user_ref = db.collection("convos").where(filter=firestore.firestore.FieldFilter("fname", "==", fname))\
+        .where(filter=firestore.firestore.FieldFilter("lname", "==", lname)).get()[0]
+    
+    if len(user_ref) == 0:
+        return False, "User not found"
+    
+    # update user data
+    user_ref.update(user_data)
+    # update key facts
+    kf_ref = user_ref.get("kf_ref")
+    kf_ref.update(key_facts)
+    # close db
+    db.close()
+
+    return True, "User data saved"
+
 class HumanExternalDataStore:
     def __init__(self, user_fname: str, user_lname: str):
-        self.db = firestore.client()
-        self.msg_chain = []
+        self.msg_chain = list[BaseMessage]() # list of HumanMessage and AIMessage
         self.chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-        self.kf_ref = ""
-        # use fname and lname to get user id
+        self.fname = user_fname
+        self.lname = user_lname
+
+        # use fname and lname to get user id. Thats our authentication
         print("retrieving user id...")
-        try:
-            self.user_id = self.db.collection("convos") \
-                .where(filter=firestore.firestore.FieldFilter("fname", "==", user_fname)) \
-                .where(filter=firestore.firestore.FieldFilter("lname", "==", user_lname)) \
-                .get()[0].id
-            print(f"User {user_fname} {user_lname} found with id {self.user_id}")
-        except:
-            # create new user
-            # Create a new document in keyfacts collection
-            self.kf_ref = self.db.collection("keyfacts").document()
-            # Initialize the key_facts document with empty data
-            self.kf_ref.set({})
-            # Create a new user document in convos collection with reference to keyfacts
-            user_ref = self.db.collection("convos").document()
-            user_ref.set({
-                "fname": user_fname,
-                "lname": user_lname,
-                "messages": [],
-                "responses": [],
-                "summary": "",
-                "kf_ref": self.kf_ref,
-                "meal_plan": ""
-            })
-            self.user_id = user_ref.id
-            print(f"New user {user_fname} {user_lname} created")
-        
-        # fetch data from db
-        self.structured_data = self.db.collection("convos").document(self.user_id).get().to_dict()
+        self.unstructured_data = UnstructuredData(key_facts={})
+        self.structured_data, self.unstructured_data["key_facts"] = grab_db_user_data(user_fname, user_lname)
 
         # populate msg_chain
         for i, m in enumerate(self.structured_data["messages"]):
             self.msg_chain.append(HumanMessage(content=m))
             self.msg_chain.append(AIMessage(content=self.structured_data["responses"][i]))
-        
-        # manually create unstructured data
-        self.unstructured_data = UnstructuredData(
-            key_facts={}
-        )
 
-        # load key facts
-        self.kf_ref, self.unstructured_data["key_facts"] = self.init_facts()
-        if not self.kf_ref:
-            raise ValueError("Key facts not found")
-
-        self.pt_data = PTData(
-            structured_data=self.structured_data, 
-            unstructured_data=self.unstructured_data
-        )
+        # remove messages and responses from structured data, since we are using msg_chain
+        self.structured_data.pop("messages")
+        self.structured_data.pop("responses")
 
     def close(self):
         # save summary and key facts
@@ -94,22 +129,23 @@ class HumanExternalDataStore:
 
         # split messages in msg_chain into messages (HumanMessage) and responses (AIMessage)
         # reset messages and responses to ensure double entries into Firestore dont happen
-        self.structured_data["messages"] = []
-        self.structured_data["responses"] = []
+        msgs = []
+        resps = []
         for m in self.msg_chain:
             if isinstance(m, HumanMessage):
-                self.structured_data["messages"].append(m.content.strip())
+                msgs.append(m.content.strip())
             elif isinstance(m, AIMessage):
-                self.structured_data["responses"].append(m.content.strip())
+                resps.append(m.content.strip())
         
         # limit messages and responses to 20
-        self.structured_data["messages"] = self.structured_data["messages"][-20:]
-        self.structured_data["responses"] = self.structured_data["responses"][-20:]
+        msgs = msgs[-20:]
+        resps = resps[-20:]
+
+        self.structured_data["messages"] = msgs
+        self.structured_data["responses"] = resps
 
         # save to database
-        self.save_to_db(self.structured_data, self.unstructured_data)
-
-        self.db.close()
+        save_db_user_data(self.fname, self.lname, self.structured_data, self.unstructured_data)
 
     def chat_guardrails(self, human_message: str):
         """
@@ -156,41 +192,6 @@ class HumanExternalDataStore:
             return result
         else:
             raise ValueError("Invalid return type")
-        
-    def init_facts(self):
-        """
-        Retrieves key facts document from Firestore if it exists.
-        """
-        # Get the document reference for key facts from the user's document
-        user_doc = self.db.collection("convos").document(self.user_id).get().to_dict()
-        kf_ref = user_doc.get('kf_ref')
-        
-        # Retrieve the key facts document using the reference
-        key_facts = kf_ref.get().to_dict()
-        print("Retrieved key facts:", key_facts)
-        return kf_ref, key_facts
-    
-    def save_to_db(self, structured_data: StructuredData, unstructured_data: UnstructuredData):
-        """First update unstructured data, then structured data, then save to db"""
-        self.structured_data = structured_data
-        self.unstructured_data = unstructured_data
-        self.pt_data = PTData(
-            structured_data=self.structured_data, 
-            unstructured_data=self.unstructured_data
-        )
-
-        self.db.collection("convos").document(self.user_id).update({
-            "messages": self.structured_data["messages"],
-            "responses": self.structured_data["responses"],
-            "summary": self.structured_data["summary"],
-            "meal_plan": self.structured_data["meal_plan"]
-        })
-
-        # update key facts in kf_ref'
-        if self.unstructured_data["key_facts"] != {}:
-            self.kf_ref.update({
-                k: v for k, v in self.unstructured_data["key_facts"].items()
-            })
 
     def update_summary(self):
         "Called by API when summary needs to be updated (end of question-answer) Update the summary within the PT Data points"
@@ -206,7 +207,7 @@ class HumanExternalDataStore:
         """.format(
             summary=self.structured_data["summary"], 
             key_facts=(", ".join([str(k)+" : "+str(v)  for k,v in self.unstructured_data["key_facts"].items()])),
-            last_8_messages=("|||".join([ "Message "+str(i+1)+": "+m.content  for i, m in enumerate(self.msg_chain[-8:])]))
+            last_8_messages=("|||".join([ "Message "+str(i+1)+": "+m.content.strip()  for i, m in enumerate(self.msg_chain[-8:])]))
         ))
 
         # invoke chat
@@ -261,10 +262,6 @@ class HumanExternalDataStore:
         human_msg_simplified = HumanMessage(content=human_message)
         self.msg_chain.append(human_msg_simplified)
         self.msg_chain.append(AIMessage(content=ai_msg))
-
-        # update structured data
-        self.structured_data["messages"].append(human_message)
-        self.structured_data["responses"].append(ai_msg)
 
         # update unstructured data
         self.update_summary()
