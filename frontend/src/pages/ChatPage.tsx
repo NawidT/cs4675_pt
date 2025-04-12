@@ -20,6 +20,8 @@ import {
 import { GeminiService, LLMResponse } from '../services/llmService';
 import { UserContext } from '../App';
 import { useContext } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 
 interface Message {
@@ -29,7 +31,7 @@ interface Message {
 }
 
 const ChatPage = () => {
-  const { userfname, userlname, human_messages, ai_responses } = useContext(UserContext);
+  const { userfname, userlname, human_messages, ai_responses, meal_plan, setMealPlan } = useContext(UserContext);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -92,7 +94,9 @@ const ChatPage = () => {
         isUser: false,
         timestamp: new Date(),
       };
-      
+      if (data.meal_plan) {
+        setMealPlan(data.meal_plan);  
+      }
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
       console.error('Error getting AI response:', error);
@@ -190,7 +194,15 @@ const ChatPage = () => {
                 }}
               >
                 <ListItemText
-                  primary={message.text}
+                  primary={
+                    message.isUser ? (
+                      message.text
+                    ) : (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {message.text}
+                      </ReactMarkdown>
+                    )
+                  }
                   secondary={message.timestamp.toLocaleTimeString()}
                 />
               </Paper>
@@ -284,10 +296,18 @@ const ChatPage = () => {
               bgcolor: 'background.default',
             }}
           >
-            {/* TODO: Replace with actual content display */}
-            <Typography variant="body1" color="text.secondary" align="center">
-              Your personalized meal plans and nutritional advice will appear here
-            </Typography>
+            {/* Render meal plan as markdown */}
+            {meal_plan ? (
+              <Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {meal_plan}
+                </ReactMarkdown>
+              </Paper>
+            ) : (
+              <Typography variant="body1" color="text.secondary" align="center">
+                No meal plan generated yet.
+              </Typography>
+            )}
           </Box>
         </Box>
       )}

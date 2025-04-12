@@ -14,6 +14,8 @@ export const UserContext = createContext({
   ai_responses: [] as string[],
   setHumanMessages: (messages: string[]) => {},
   setAiResponses: (responses: string[]) => {},
+  meal_plan: '' as string,
+  setMealPlan: (plan: string) => {},
 });
 
 // Create a theme instance
@@ -33,10 +35,11 @@ function App() {
   const [userlname, setUserlname] = useState(''); 
   const [human_messages, setHumanMessages] = useState<string[]>([]);
   const [ai_responses, setAiResponses] = useState<string[]>([]);
+  const [meal_plan, setMealPlan] = useState<string>('');
   return (  
     <ThemeProvider theme={theme}>
       <UserContext.Provider value={{ userfname, userlname, setUserfname, setUserlname, 
-        human_messages, ai_responses, setHumanMessages, setAiResponses }}>
+        human_messages, ai_responses, setHumanMessages, setAiResponses, meal_plan, setMealPlan}}>
         <Router>
           <Routes>
             <Route path="/" element={<LandingPage />} />
