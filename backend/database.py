@@ -17,7 +17,7 @@ class StructuredData(TypedDict):
 class UnstructuredData(TypedDict):
     key_facts: dict[str, str] # key facts of the conversation
 
-cred = credentials.Certificate("backend/serviceAccountKey.json")
+cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 
 
@@ -49,9 +49,11 @@ def create_db_user(user_fname: str, user_lname: str):
         "meal_plan": ""
     })
     # close db
+    user_ref = user_ref.get().to_dict()
+    kf_ref = kf_ref.get().to_dict()
     db.close()
 
-    return user_ref.to_dict(), kf_ref.to_dict()
+    return user_ref, kf_ref
 
 def grab_db_user_data(user_fname: str, user_lname: str):
     """
