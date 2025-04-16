@@ -28,6 +28,7 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
+  rtt?: number; // Round-trip time in milliseconds
 }
 
 const ChatPage = () => {
@@ -76,6 +77,7 @@ const ChatPage = () => {
 
     try {
       // Get AI response by calling localhost 5000/chat and sending the message, userfname, and userlname
+      const startTime = Date.now();
       const response = await fetch('http://localhost:5000/chat', {
         method: 'POST',
         headers: {
@@ -87,12 +89,16 @@ const ChatPage = () => {
           userlname: userlname,
         })
       });
-
+      const endTime = Date.now();
       const data = await response.json();
+      
+      const RTT = endTime - startTime;
+
       const aiMessage: Message = {
         text: data.response,
         isUser: false,
         timestamp: new Date(),
+        rtt: RTT,
       };
       if (data.meal_plan) {
         setMealPlan(data.meal_plan);  
@@ -203,7 +209,18 @@ const ChatPage = () => {
                       </ReactMarkdown>
                     )
                   }
-                  secondary={message.timestamp.toLocaleTimeString()}
+                  secondary={
+                    <>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {message.timestamp.toLocaleTimeString()}
+                      </Typography>
+                      {!message.isUser && message.rtt !== undefined && (
+                        <Typography variant="caption" sx={{ fontSize: '0.6rem', opacity: 0.7}} display="block">
+                          RTT: {message.rtt} ms
+                        </Typography>
+                      )}
+                    </>
+                  }
                 />
               </Paper>
             </ListItem>
