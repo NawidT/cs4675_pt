@@ -75,6 +75,7 @@ def chat():
         message = data.get('message')
         userfname = data.get('userfname')
         userlname = data.get('userlname')
+        model = data.get('model')
         api_id = userfname + ":" + userlname
 
         # compare userfname and userlname with user_creds
@@ -82,7 +83,9 @@ def chat():
             return jsonify({"error": "Invalid user credentials"}), 401
         
         # Process the message and get response
+        pool[api_id]["db"].model = model
         ai_response = pool[api_id]["db"].call_chat(message)
+
         
         return jsonify({
             "status": "success",
