@@ -3,6 +3,7 @@ from firebase_admin import credentials, firestore
 from typing_extensions import TypedDict
 from langchain_openai.chat_models import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser, PydanticOutputParser
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from pydantic import BaseModel
@@ -186,7 +187,7 @@ class HumanExternalDataStore:
             elif self.model.startswith("google"):
                 self.chat = ChatGoogleGenerativeAI(model=self.model)
             else:
-                raise ValueError("Invalid model")
+                self.chat = ChatOllama(model=self.model)   
         except Exception as e:
             print(e)
             return "The model is currently down. Please try again later."

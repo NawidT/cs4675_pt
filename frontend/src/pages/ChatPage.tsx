@@ -235,6 +235,9 @@ const ChatPage = () => {
                 <MenuItem value="gpt-3.5-turbo">gpt-3.5-turbo</MenuItem>
                 <MenuItem value="gpt-4o-mini">gpt-4o-mini</MenuItem>
                 <MenuItem value="gemini-1.5-flash">gemini-1.5-flash</MenuItem>
+                <MenuItem value="llama3.2">llama3.2</MenuItem>
+                <MenuItem value="llama3.1">llama3.1</MenuItem>
+                <MenuItem value="llama2">llama2</MenuItem>
               </Select>
             </FormControl>
             
