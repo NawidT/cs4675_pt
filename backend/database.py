@@ -116,7 +116,6 @@ class HumanExternalDataStore:
         print("retrieving user id...")
         self.structured_data, self.unstructured_data["key_facts"] = grab_db_user_data(user_fname, user_lname)
 
-        print(self.structured_data)
 
         # populate msg_chain
         for i, m in enumerate(self.structured_data["messages"]):
@@ -124,8 +123,8 @@ class HumanExternalDataStore:
             self.msg_chain.append(AIMessage(content=self.structured_data["responses"][i]))
 
         # remove messages and responses from structured data, since we are using msg_chain
-        self.structured_data.pop("messages")
-        self.structured_data.pop("responses")
+        # self.structured_data.pop("messages")
+        # self.structured_data.pop("responses")
 
     def close(self):
         # save summary and key facts
@@ -168,7 +167,6 @@ class HumanExternalDataStore:
             - reasoning: a short explanation of your reasoning
             - is_health_related: True if the message is within the realms of medical/fitness/nutrition advice, False otherwise
         """.format(human_message=human_message))])
-        print(result)
         if isinstance(result, Guardrail):
             return result.is_health_related
         else:
