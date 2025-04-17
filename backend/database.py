@@ -2,6 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from typing_extensions import TypedDict
 from langchain_openai.chat_models import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser, PydanticOutputParser
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from pydantic import BaseModel
@@ -104,9 +105,12 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     return True, "User data saved"
 
 class HumanExternalDataStore:
-    def __init__(self, user_fname: str, user_lname: str):
+    def __init__(self, user_fname: str, user_lname: str,):
         self.msg_chain = list[BaseMessage]() # list of HumanMessage and AIMessage
-        self.chat = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+        # allow user to select model across multiple
+        self.model = "gpt-4o-mini"
+        self.chat = ChatOpenAI(model=self.model)
         self.fname = user_fname
         self.lname = user_lname
         self.structured_data = StructuredData(messages=[], responses=[], summary="", meal_plan="")
@@ -159,7 +163,7 @@ class HumanExternalDataStore:
             return False
 
         # invoke chat
-        chain = self.chat | PydanticOutputParser(pydantic_object=Guardrail)
+        chain = ChatOpenAI(model="gpt-4o-mini") | PydanticOutputParser(pydantic_object=Guardrail)
         result = chain.invoke([HumanMessage(content="""
             Determine if the following message is within the realms of medical/fitness/nutrition advice.
             Message: {human_message}
@@ -175,6 +179,18 @@ class HumanExternalDataStore:
     
     def invoke_chat(self, messages: list[BaseMessage], ret_type: str):
         """ Used to invoke the chat model and return the result in the specified format """
+        
+        try:
+            if self.model.startswith("gpt"):
+                self.chat = ChatOpenAI(model=self.model)
+            elif self.model.startswith("google"):
+                self.chat = ChatGoogleGenerativeAI(model=self.model)
+            else:
+                raise ValueError("Invalid model")
+        except Exception as e:
+            print(e)
+            return "The model is currently down. Please try again later."
+        
         if ret_type == "json":
             parser = JsonOutputParser()
             try:

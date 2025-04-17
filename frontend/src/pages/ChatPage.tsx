@@ -12,12 +12,15 @@ import {
   Divider,
   useTheme,
   CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Fullscreen as FullscreenIcon,
   FullscreenExit as FullscreenExitIcon,
 } from '@mui/icons-material';
-import { GeminiService, LLMResponse } from '../services/llmService';
 import { UserContext } from '../App';
 import { useContext } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -37,7 +40,7 @@ const ChatPage = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const theme = useTheme();
-
+  const [selectedLLM, setSelectedLLM] = useState('gpt-3.5-turbo');
   useEffect(() => {
     // combine human_messages and ai_responses into messages, alternating between user and ai
     const combinedMessages: Message[] = [];
@@ -85,6 +88,7 @@ const ChatPage = () => {
           message: inputMessage,
           userfname: userfname,
           userlname: userlname,
+          model: selectedLLM,
         })
       });
 
@@ -218,24 +222,41 @@ const ChatPage = () => {
             bgcolor: 'background.paper',
           }}
         >
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="Type your message..."
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              disabled={isLoading}
-            />
-            <Button
-              variant="contained"
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isLoading}
-              sx={{ minWidth: '100px' }}
-            >
-              {isLoading ? <CircularProgress size={24} /> : 'Send'}
-            </Button>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FormControl variant="outlined" size="small">
+              <InputLabel id="llm-select-label">Select LLM</InputLabel>
+              <Select
+                labelId="llm-select-label"
+                id="llm-select"
+                value={selectedLLM || ''}
+                onChange={(e) => setSelectedLLM(e.target.value)}
+                label="Select LLM"
+              >
+                <MenuItem value="gpt-3.5-turbo">gpt-3.5-turbo</MenuItem>
+                <MenuItem value="gpt-4o-mini">gpt-4o-mini</MenuItem>
+                <MenuItem value="gemini-1.5-flash">gemini-1.5-flash</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Type your message..."
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                disabled={isLoading}
+              />
+              <Button
+                variant="contained"
+                onClick={handleSendMessage}
+                disabled={!inputMessage.trim() || isLoading}
+                sx={{ minWidth: '100px' }}
+              >
+                {isLoading ? <CircularProgress size={24} /> : 'Send'}
+              </Button>
+            </Box>
           </Box>
         </Paper>
       </Box>
