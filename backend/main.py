@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from database import HumanExternalDataStore
+from database import HumanExternalDataStore, HumanMessage, AIMessage
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
@@ -46,8 +46,8 @@ def init():
     return jsonify({
         "status": "success", 
         "message": "Database connection initialized",
-        "human_messages": cur_db.structured_data["messages"],
-        "ai_responses": cur_db.structured_data["responses"],
+        "human_messages": [m.content for m in cur_db.msg_chain if isinstance(m, HumanMessage)], # "responses" and "messages" was removed
+        "ai_responses": [m.content for m in cur_db.msg_chain if isinstance(m, AIMessage)],
         "meal_plan": cur_db.structured_data['meal_plan']
     }), 200
 
