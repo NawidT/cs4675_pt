@@ -11,4 +11,4 @@ COPY backend/ .
 EXPOSE 5000
 
 # Command to run the application
-CMD ["python", "backend/main.py"]
+CMD ["python", "main.py"]
