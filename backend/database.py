@@ -23,41 +23,6 @@ class StructuredData(TypedDict):
 class UnstructuredData(TypedDict):
     key_facts: dict[str, str] # key facts of the conversation
 
-# creds = {
-#   "type": "service_account",
-#   "project_id": "cs4675pt",
-#   "private_key_id": "bdb26f5fce304dcc915ffae3e60b486375d13aa1",
-#   "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCrg8o2qo+1cI9z\nmbQlgguuJZ4AHu+E5w1t6ZBTX0Lwqs/yzLwqvCf8oianlpuHWa8RMIEwsLGKfCTo\nzISYUt97R74AuIuYsQwUgggW/eETwpJ1J23090MuAGmevk3x+SNUvYfdZSYpS1VJ\nC+VXSOr/wqOxElDhxeA0L8G0rgIkaQn/MMBRwt8qzTe02nqattXm391zk8IW7MEA\nDT5TGaHHSm5+Rl5T6A06/HPMXbcD4gu+tFe+y/mXqP+iUtL3DiIOxKVRtuz7CabY\nZLUcHxh/UQaVJIfFocDRM1ncaDwpY7olpLew+I/0iMtGiKt5idfTlLDWIS2PVAkQ\n5uT7HTKvAgMBAAECggEAFSq2kfiKs8GocoPNj7N07ZEG5szqkmRRa/cfMKrZAAqU\nj0plDoEaDjuUuaoEl7ehu2VZDEFCJ+0aQQC8fG/91KEN+djMoZN4Ai/p/6xlUqL4\noCy1jT3WtJ6oakbiJ7KvgY3CbrhE9WOuqs0lCJifJ+FFglzYToS1HrumFD5FVWjN\nb3AvXHYbyLDX2QEZuYbTNmIocuFHknMCMNm/c4hCN27Pwr9+nIzxLc5GstqnrcJY\nh1bN1zrNDibMgSHLlEaLprW/uxpwWw3faYoCRh9+ko9rKHM55nA2PkEcwR5pbS4R\njJ9rJLib7FyikAlwYUuA4HTLzG2AW/N8bZasAkrTQQKBgQDWLZr29QZM3zYDbl92\nJ5TSu37L3TB45gbtdTzfmGQhXflhi8ZuKCFXgbKzjj5YS3W1+5FGSAYDMN0mIUxP\nFChRM+4O13Ri1Xco5y3FKB0tivPTUm/rlauBubf1Lgen0Cd4rqpbWghz8KXKRs07\nUEBAaLxf4zSrtmm2vtqzjFcnqwKBgQDNAYSbIU+ucKqvR3agWMf4n29JIp0xxvjs\nfQQEKiHy38ncBwihi+KipU0nQ+dUU1OS/KNIuhuqqQQ7gBEARpjXRaaGwFTqMchZ\nPqc+cg1qw03TjLIA6gH/1ixLitO2KmgaIZ0vY7uscYLQ/lbmEqDhvLT8FVHlD72+\naL0juoWNDQKBgC3iJ0iwxWDCkPe7NYhCgoeC028pO7Eq1mEYtKnSI+FiGILlRuVi\ng4ITrwz4dDLGN7l842qDE4areTUp/QcT8m8zCNT1I2HpCVYh8JREO7v+AK5NAt0d\ne1iXSOmlqs4wscQQ5z4a06TC8UGcWWtTjfA+f9yq+CWxNoSH7qJ4dlNxAoGBALvV\nKzmz4L0Ur97fXHp4Pei3tBBPbbXg98w+k0J5lBdjIiG+NBNIBwQ87p8OYVLq8gUY\nA0esdZL9P0qBAZK+HGYJhBWs/WCC8m2KsVPOzipG/fTZ0XJy9hgBlR41+drLqgxf\nRhTYjWjnrBNvJhGxecS60RyzMBDvRkvCzaGB0cG1AoGAIqBeOIT8N7OPiC43fBLi\nBgf+NutK5srIgNRVk4NHAGzXjPGT2E9jEVO0LmBdmRQWfGXyPU7f20J0VbOTN4c4\n7rZrdnT9PtIkqsLCe/KQOhXu7L0pc3lgiKaHWffT+0JCXAuo9rDlIN9J/HkngD0y\nuiI5xElq82ZilyzwmrwRVTs=\n-----END PRIVATE KEY-----\n",
-#   "client_email": "firebase-adminsdk-fbsvc@cs4675pt.iam.gserviceaccount.com",
-#   "client_id": "114238956396646325286",
-#   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-#   "token_uri": "https://oauth2.googleapis.com/token",
-#   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-#   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40cs4675pt.iam.gserviceaccount.com",
-#   "universe_domain": "googleapis.com"
-# }
-
-# # check if creds and env vars are the same
-# envs = {
-#     "type": os.getenv("FIRESTORE_TYPE"),
-#     "project_id": os.getenv("FIRESTORE_PROJECT_ID"),
-#     "private_key_id": os.getenv("FIRESTORE_PRIVATE_KEY_ID"),
-#     "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCrg8o2qo+1cI9z\nmbQlgguuJZ4AHu+E5w1t6ZBTX0Lwqs/yzLwqvCf8oianlpuHWa8RMIEwsLGKfCTo\nzISYUt97R74AuIuYsQwUgggW/eETwpJ1J23090MuAGmevk3x+SNUvYfdZSYpS1VJ\nC+VXSOr/wqOxElDhxeA0L8G0rgIkaQn/MMBRwt8qzTe02nqattXm391zk8IW7MEA\nDT5TGaHHSm5+Rl5T6A06/HPMXbcD4gu+tFe+y/mXqP+iUtL3DiIOxKVRtuz7CabY\nZLUcHxh/UQaVJIfFocDRM1ncaDwpY7olpLew+I/0iMtGiKt5idfTlLDWIS2PVAkQ\n5uT7HTKvAgMBAAECggEAFSq2kfiKs8GocoPNj7N07ZEG5szqkmRRa/cfMKrZAAqU\nj0plDoEaDjuUuaoEl7ehu2VZDEFCJ+0aQQC8fG/91KEN+djMoZN4Ai/p/6xlUqL4\noCy1jT3WtJ6oakbiJ7KvgY3CbrhE9WOuqs0lCJifJ+FFglzYToS1HrumFD5FVWjN\nb3AvXHYbyLDX2QEZuYbTNmIocuFHknMCMNm/c4hCN27Pwr9+nIzxLc5GstqnrcJY\nh1bN1zrNDibMgSHLlEaLprW/uxpwWw3faYoCRh9+ko9rKHM55nA2PkEcwR5pbS4R\njJ9rJLib7FyikAlwYUuA4HTLzG2AW/N8bZasAkrTQQKBgQDWLZr29QZM3zYDbl92\nJ5TSu37L3TB45gbtdTzfmGQhXflhi8ZuKCFXgbKzjj5YS3W1+5FGSAYDMN0mIUxP\nFChRM+4O13Ri1Xco5y3FKB0tivPTUm/rlauBubf1Lgen0Cd4rqpbWghz8KXKRs07\nUEBAaLxf4zSrtmm2vtqzjFcnqwKBgQDNAYSbIU+ucKqvR3agWMf4n29JIp0xxvjs\nfQQEKiHy38ncBwihi+KipU0nQ+dUU1OS/KNIuhuqqQQ7gBEARpjXRaaGwFTqMchZ\nPqc+cg1qw03TjLIA6gH/1ixLitO2KmgaIZ0vY7uscYLQ/lbmEqDhvLT8FVHlD72+\naL0juoWNDQKBgC3iJ0iwxWDCkPe7NYhCgoeC028pO7Eq1mEYtKnSI+FiGILlRuVi\ng4ITrwz4dDLGN7l842qDE4areTUp/QcT8m8zCNT1I2HpCVYh8JREO7v+AK5NAt0d\ne1iXSOmlqs4wscQQ5z4a06TC8UGcWWtTjfA+f9yq+CWxNoSH7qJ4dlNxAoGBALvV\nKzmz4L0Ur97fXHp4Pei3tBBPbbXg98w+k0J5lBdjIiG+NBNIBwQ87p8OYVLq8gUY\nA0esdZL9P0qBAZK+HGYJhBWs/WCC8m2KsVPOzipG/fTZ0XJy9hgBlR41+drLqgxf\nRhTYjWjnrBNvJhGxecS60RyzMBDvRkvCzaGB0cG1AoGAIqBeOIT8N7OPiC43fBLi\nBgf+NutK5srIgNRVk4NHAGzXjPGT2E9jEVO0LmBdmRQWfGXyPU7f20J0VbOTN4c4\n7rZrdnT9PtIkqsLCe/KQOhXu7L0pc3lgiKaHWffT+0JCXAuo9rDlIN9J/HkngD0y\nuiI5xElq82ZilyzwmrwRVTs=\n-----END PRIVATE KEY-----\n",
-#     "client_email": os.getenv("FIRESTORE_CLIENT_EMAIL"),
-#     "client_id": os.getenv("FIRESTORE_CLIENT_ID"),
-#     "auth_uri": os.getenv("FIRESTORE_AUTH_URI"),
-#     "token_uri": os.getenv("FIRESTORE_TOKEN_URI"),
-#     "auth_provider_x509_cert_url": os.getenv("FIRESTORE_AUTH_PROVIDER_X509_CERT_URL"),
-#     "client_x509_cert_url": os.getenv("FIRESTORE_CLIENT_X509_CERT_URL"),
-#     "universe_domain": os.getenv("FIRESTORE_UNIVERSE_DOMAIN")
-# }
-
-# for k, v in creds.items():
-#     if k in envs and v != envs[k]:
-#         print(f"{k} is different")
-#         print("envs: ", envs[k])
-#         print("creds: ", creds[k])
-
 
 
 firebase_admin.initialize_app({
