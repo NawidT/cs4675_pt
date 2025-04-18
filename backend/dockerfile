@@ -2,16 +2,13 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# cd to backend in actual directory
-RUN cd backend
-
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ .
 
 # Expose the port the app runs on
 EXPOSE 5000
 
 # Command to run the application
-CMD ["python", "main.py"]
+CMD ["python", "backend/main.py"]
