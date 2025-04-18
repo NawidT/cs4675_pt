@@ -255,6 +255,7 @@ const ChatPage = () => {
                 <MenuItem value="llama3.2">llama3.2</MenuItem>
                 <MenuItem value="llama3.1">llama3.1</MenuItem>
                 <MenuItem value="llama2">llama2</MenuItem>
+                <MenuItem value="deepseek-r1">deepseek-r1</MenuItem>
               </Select>
             </FormControl>
             
