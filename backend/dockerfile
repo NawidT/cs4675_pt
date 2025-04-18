@@ -7,9 +7,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Copy the service account key and environment variables
-COPY .env .
-
 # Expose the port the app runs on
 EXPOSE 5000
 
