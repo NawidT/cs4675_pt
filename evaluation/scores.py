@@ -7,10 +7,9 @@ from bert_score import score
 # Load Excel file
 df = pd.read_excel("data.xlsx")
 
-# Cleanse function
 def cleanse(text):
     text = str(text).lower().strip()
-    text = re.sub(r"\s+", " ", text)             # Normalize whitespace
+    text = re.sub(r"\s+", " ", text)             # Remove whitespace and newlines
     text = re.sub(r"[^\w\s]", "", text)          # Remove punctuation
     return text
 
