@@ -286,7 +286,6 @@ class HumanExternalDataStore:
         if not guardrail_health_related:
             return "The message sent is not within the realms of medical/fitness/nutrition advice. Please rephrase your question."
 
-
         # check if meal plan needs to be changed
         meal_plan_change_needed = self.determine_if_meal_plan_change_needed(human_message)
         if meal_plan_change_needed:
@@ -310,10 +309,10 @@ class HumanExternalDataStore:
             # invoke chat
             ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
             # add ai message to msg_chain
-            human_msg_simplified = HumanMessage(content=human_message)
-            self.msg_chain.append(human_msg_simplified)
             self.msg_chain.append(AIMessage(content=ai_msg))
-
+            
+        human_msg_simplified = HumanMessage(content=human_message)
+        self.msg_chain.append(human_msg_simplified)
         # update unstructured data
         self.update_summary()
         # self.update_key_facts()
