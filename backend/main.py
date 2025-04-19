@@ -94,9 +94,10 @@ def chat():
         }), 200
         
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 500
     
-@app.route('/close', methods=['GET'])
+@app.route('/close', methods=['POST'])
 def close():
     """
     Close the database for a user
@@ -112,6 +113,7 @@ def close():
         del pool[api_id]
         return jsonify({"status": "success", "message": "Database connection closed"}), 200
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 500
     
 

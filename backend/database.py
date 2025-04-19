@@ -82,16 +82,14 @@ def grab_db_user_data(user_fname: str, user_lname: str):
     Stateless API. Used to grab user data from the database
     """
     db = firestore.client()
-    user_ref = db.collection("convos")\
+    users = db.collection("convos")\
         .where(filter=firestore.firestore.FieldFilter("fname", "==", user_fname))\
         .where(filter=firestore.firestore.FieldFilter("lname", "==", user_lname))\
         .get()
     
-    if user_ref == []:
+    if len(users) == 0:
         return create_db_user(user_fname, user_lname)
-    
-    # get first user data
-    user_ref = user_ref[0]
+    user_ref = users[0]
     
     # get key facts
     kf_ref = user_ref.get("kf_ref")
@@ -112,16 +110,21 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     db = firestore.client()
     # find the user
     user_ref = db.collection("convos").where(filter=firestore.firestore.FieldFilter("fname", "==", fname))\
-        .where(filter=firestore.firestore.FieldFilter("lname", "==", lname)).get()[0]
+        .where(filter=firestore.firestore.FieldFilter("lname", "==", lname)).get()[0].reference
     
     if user_ref == None:
         return False, "User not found"
     
     # update user data
     user_ref.update(user_data)
+
     # update key facts
-    kf_ref = user_ref.get("kf_ref")
-    kf_ref.update(key_facts)
+    # user_doc = user_ref.get()
+    # kf_ref = user_doc.get("kf_ref")  # This should be a DocumentReference
+    
+    # for k, v in key_facts.items():
+    #     kf_ref.collection("key_facts").document(k).set(v)
+
     # close db
     db.close()
 
@@ -156,7 +159,7 @@ class HumanExternalDataStore:
     def close(self):
         # save summary and key facts
         self.update_summary()
-        self.update_key_facts()
+        # self.update_key_facts()
 
         # split messages in msg_chain into messages (HumanMessage) and responses (AIMessage)
         # reset messages and responses to ensure double entries into Firestore dont happen
@@ -283,69 +286,51 @@ class HumanExternalDataStore:
         if not guardrail_health_related:
             return "The message sent is not within the realms of medical/fitness/nutrition advice. Please rephrase your question."
 
-        # add human message to msg_chain
-        human_msg = HumanMessage(content="""
-            Here is the key facts: {key_facts}
-            Here is the summary: {summary}
-            Here is the human message: {human_message}
-            Here is the meal plan: {meal_plan}
-            Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
-            If the meal plan needs to be changed, just mention that "The meal plan needs to be changed" and nothing else.             
-        """.format(
-            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
-            summary=self.structured_data["summary"],
-            human_message=human_message,
-            meal_plan=self.structured_data["meal_plan"]
-        ))
-        print("invoking chat...")
-        # invoke chat
-        ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
-        # add ai message to msg_chain
-        human_msg_simplified = HumanMessage(content=human_message)
-        self.msg_chain.append(human_msg_simplified)
-        self.msg_chain.append(AIMessage(content=ai_msg))
+
+        # check if meal plan needs to be changed
+        meal_plan_change_needed = self.determine_if_meal_plan_change_needed(human_message)
+        if meal_plan_change_needed:
+            self.change_meal_plan()
+            ai_msg = "The meal plan needs to be changed. Please wait while I update it."
+        else:
+            # add human message to msg_chain
+            human_msg = HumanMessage(content="""
+                Here is the key facts: {key_facts}
+                Here is the summary: {summary}
+                Here is the human message: {human_message}
+                Here is the meal plan: {meal_plan}
+                Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
+            """.format(
+                key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
+                summary=self.structured_data["summary"],
+                human_message=human_message,
+                meal_plan=self.structured_data["meal_plan"]
+            ))
+            print("invoking chat...")
+            # invoke chat
+            ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
+            # add ai message to msg_chain
+            human_msg_simplified = HumanMessage(content=human_message)
+            self.msg_chain.append(human_msg_simplified)
+            self.msg_chain.append(AIMessage(content=ai_msg))
 
         # update unstructured data
         self.update_summary()
-        self.update_key_facts()
-
-        # check if meal plan needs to be changed
-        meal_plan_change_needed = self.determine_if_meal_plan_change_needed()
-        if meal_plan_change_needed:
-            self.change_meal_plan()
+        # self.update_key_facts()
 
         return ai_msg
     
-    def determine_if_meal_plan_change_needed(self):
+    def determine_if_meal_plan_change_needed(self, human_message: str):
         """
         Used to determine if the meal plan needs to be changed using key facts, summary and last 8 messages
         """
-        # print chat prompt
-        print("""
-            Based on the the following, determine if the meal plan needs to be changed.
-            Key Facts: {key_facts}
-            Summary: {summary}
-            Existing Meal Plan: {meal_plan}
-            Here are the last 8 messages: {last_8_messages}
-            RETURN ONLY True OR False
-        """.format(
-            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
-            summary=self.structured_data["summary"],
-            meal_plan=self.structured_data["meal_plan"],
-            last_8_messages=("|||".join([ "Message "+str(i+1)+": "+m.content  for i, m in enumerate(self.msg_chain[-8:])]))
-        ))
-
         # invoke chat
         result = self.chat.invoke([HumanMessage(content="""
-            Based on the the following, determine if the meal plan needs to be changed.
-            Key Facts: {key_facts}
-            Summary: {summary}
-            Existing Meal Plan: {meal_plan}
+            Based on the the last message and existing meal plan, determine if the meal plan needs to be changed.
+            Last Message: {last_message}
             RETURN ONLY True OR False
         """.format(
-            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
-            summary=self.structured_data["summary"],
-            meal_plan=self.structured_data["meal_plan"]
+            last_message=human_message,
         ))])
         print(result.content.strip())
         result = True if result.content.strip() == "True" else False
