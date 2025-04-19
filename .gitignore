@@ -4,3 +4,5 @@ __pycache__/
 backend/serviceAccountKey.json
 /app/
 /node_modules/
+/frontend/node_modules/
+/frontend/.vercel/
