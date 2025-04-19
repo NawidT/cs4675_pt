@@ -305,7 +305,7 @@ class HumanExternalDataStore:
         meal_plan_change_needed = self.determine_if_meal_plan_change_needed(human_message, ai_msg)
         if meal_plan_change_needed:
             self.change_meal_plan(ai_msg)
-            ai_msg += "The meal plan needs to be changed. Please wait while I update it."
+            ai_msg += "\n\nThe meal plan needs to be changed. Please wait while I update it."
         self.msg_chain.append(AIMessage(content=ai_msg))
             
         human_msg_simplified = HumanMessage(content=human_message)
