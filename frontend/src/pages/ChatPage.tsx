@@ -205,13 +205,9 @@ const ChatPage = () => {
               >
                 <ListItemText
                   primary={
-                    message.isUser ? (
-                      message.text
-                    ) : (
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.text}
                       </ReactMarkdown>
-                    )
                   }
                   secondary={
                     <>
