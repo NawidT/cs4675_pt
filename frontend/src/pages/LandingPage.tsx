@@ -21,8 +21,8 @@ const LandingPage = () => {
   const handleSubmit = async () => {
     if (firstName.trim() && lastName.trim()) {
       // call with firstName and lastName
-      const response = await fetch('http://localhost:5000/init', {
-      // const response = await fetch('https://cs4675pt-production.up.railway.app/init', {
+      // const response = await fetch('http://localhost:5000/init', {
+      const response = await fetch('https://cs4675pt-production.up.railway.app/init', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

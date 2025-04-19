@@ -4,18 +4,31 @@ import LandingPage from './pages/LandingPage';
 import ChatPage from './pages/ChatPage';
 import { createContext, useState } from 'react';
 
+interface UserContextType {
+  userfname: string;
+  userlname: string;
+  setUserfname: (fname: string) => void;
+  setUserlname: (lname: string) => void;
+  human_messages: string[];
+  ai_responses: string[];
+  setHumanMessages: (messages: string[]) => void;
+  setAiResponses: (responses: string[]) => void;
+  meal_plan: string;
+  setMealPlan: (plan: string) => void;
+}
+
 // create a context to store the user's first name and last name
-export const UserContext = createContext({
+export const UserContext = createContext<UserContextType>({
   userfname: '',
   userlname: '',
-  setUserfname: (fname: string) => {},
-  setUserlname: (lname: string) => {},
-  human_messages: [] as string[],
-  ai_responses: [] as string[],
-  setHumanMessages: (messages: string[]) => {},
-  setAiResponses: (responses: string[]) => {},
-  meal_plan: '' as string,
-  setMealPlan: (plan: string) => {},
+  setUserfname: () => {},
+  setUserlname: () => {},
+  human_messages: [],
+  ai_responses: [],
+  setHumanMessages: () => {},
+  setAiResponses: () => {},
+  meal_plan: '',
+  setMealPlan: () => {},
 });
 
 // Create a theme instance

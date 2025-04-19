@@ -5,11 +5,9 @@ import {
   Button,
   Paper,
   Typography,
-  List,
   ListItem,
   ListItemText,
   IconButton,
-  Divider,
   useTheme,
   CircularProgress,
   FormControl,
@@ -88,8 +86,8 @@ const ChatPage = () => {
     try {
       // Get AI response by calling localhost 5000/chat and sending the message, userfname, and userlname
       const startTime = Date.now();
-      const response = await fetch('http://localhost:5000/chat', {
-      // const response = await fetch('https://cs4675pt-production.up.railway.app/chat', {
+      // const response = await fetch('http://localhost:5000/chat', {
+      const response = await fetch('https://cs4675pt-production.up.railway.app/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -324,7 +322,8 @@ const ChatPage = () => {
               variant="contained"
               color="secondary"
               onClick={() => {
-                fetch('http://localhost:5000/close', {
+                fetch('https://cs4675pt-production.up.railway.app/close', {
+                // fetch('http://localhost:5000/close', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
