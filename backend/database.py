@@ -329,7 +329,7 @@ class HumanExternalDataStore:
             Here is what the user wants: {last_message}
             Response to the user's wants: {last_response}
             determine if the meal plan needs to be changed. 
-            If the response to the user's wants includes a meal plan return ONLY TRUE
+            If the response to the user's wants includes something that looks like a meal plan return ONLY TRUE
             RETURN ONLY True OR False
         """.format(
             meal_plan=self.structured_data["meal_plan"],
