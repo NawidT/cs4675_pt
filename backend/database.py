@@ -323,11 +323,17 @@ class HumanExternalDataStore:
         """
         # invoke chat
         result = self.chat.invoke([HumanMessage(content="""
-            Based on the the last message and last response, determine if the meal plan needs to be changed.
-            Last Message: {last_message}
-            Last Response: {last_response}
+            Here is the existing meal plan: {meal_plan}
+            Here is the key facts: [ {key_facts} ]
+            Here is the summary: {summary}
+            Here is what the user wants: {last_message}
+            Response to the user's wants: {last_response}
+            determine if the meal plan needs to be changed.
             RETURN ONLY True OR False
         """.format(
+            meal_plan=self.structured_data["meal_plan"],
+            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
+            summary=self.structured_data["summary"],
             last_message=human_message,
             last_response=ai_message
         ))])
@@ -341,7 +347,7 @@ class HumanExternalDataStore:
         """
         # invoke chat
         result = self.invoke_chat([HumanMessage(content="""
-            Here is the exisitng meal plan: {meal_plan}
+            Here is the existing meal plan: {meal_plan}
             Here is the key facts: [ {key_facts} ]
             Here is the summary: {summary}
             Here is what the user wants: {last_message}
