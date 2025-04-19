@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Box,
   TextField,
@@ -42,6 +42,7 @@ const ChatPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const theme = useTheme();
   const [selectedLLM, setSelectedLLM] = useState('gpt-3.5-turbo');
+
   useEffect(() => {
     // combine human_messages and ai_responses into messages, alternating between user and ai
     const combinedMessages: Message[] = [];
@@ -59,7 +60,13 @@ const ChatPage = () => {
     }
     setMessages(combinedMessages);
   }, [human_messages, ai_responses]);
-  
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   // Initialize Gemini service with API key from environment variables
   // const llmService = new GeminiService(import.meta.env.VITE_GEMINI_API_KEY);
@@ -225,6 +232,7 @@ const ChatPage = () => {
               </Paper>
             </ListItem>
           ))}
+          <div ref={bottomRef} />
         </Box>
 
         {/* Input Area */}
