@@ -40,6 +40,8 @@ const ChatPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const theme = useTheme();
   const [selectedLLM, setSelectedLLM] = useState('gpt-3.5-turbo');
+  const server_url = "https://cs4675pt-production.up.railway.app" // production
+  // const server_url = "http://localhost:5000" // local
 
   useEffect(() => {
     // combine human_messages and ai_responses into messages, alternating between user and ai
@@ -86,8 +88,7 @@ const ChatPage = () => {
     try {
       // Get AI response by calling localhost 5000/chat and sending the message, userfname, and userlname
       const startTime = Date.now();
-      // const response = await fetch('http://localhost:5000/chat', {
-      const response = await fetch('https://cs4675pt-production.up.railway.app/chat', {
+      const response = await fetch(server_url + '/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -322,8 +323,7 @@ const ChatPage = () => {
               variant="contained"
               color="secondary"
               onClick={() => {
-                fetch('https://cs4675pt-production.up.railway.app/close', {
-                // fetch('http://localhost:5000/close', {
+                fetch(server_url + '/close', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',

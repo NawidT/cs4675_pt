@@ -345,7 +345,7 @@ class HumanExternalDataStore:
             Here is the exisitng meal plan: {meal_plan}
             Here is the key facts: [ {key_facts} ]
             Here is the summary: {summary}
-            Here is the last message: {last_message}
+            Here is what the user wants: {last_message}
             The meal plan needs to change. What should the new meal plan be?
             RETURN ONLY THE NEW MEAL PLAN
         """.format(
