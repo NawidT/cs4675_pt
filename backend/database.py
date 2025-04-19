@@ -354,6 +354,7 @@ class HumanExternalDataStore:
             Here is what the user wants: {last_message}
             Response to user's wants: {last_response}
             The meal plan needs to change. What should the new meal plan be? Make minimal changes to the existing meal plan while fullfilling the user wants.
+            ONLY INCLUDE INFORMATION PERTAINING TO A MEAL PLAN
             RETURN ONLY THE NEW MEAL PLAN
         """.format(
             meal_plan=self.structured_data["meal_plan"],
