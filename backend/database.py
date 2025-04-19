@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+import base64
 
 
 
@@ -23,13 +24,13 @@ class StructuredData(TypedDict):
 class UnstructuredData(TypedDict):
     key_facts: dict[str, str] # key facts of the conversation
 
+pk_service = base64.b64decode(os.getenv("BASE64_ENCODE_PK")).decode("utf-8")
 
-
-firebase_admin.initialize_app({
+credens = credentials.Certificate({
     "type": os.getenv("FIRESTORE_TYPE"),
     "project_id": os.getenv("FIRESTORE_PROJECT_ID"),
     "private_key_id": os.getenv("FIRESTORE_PRIVATE_KEY_ID"),
-    "private_key": os.getenv("FIRESTORE_PRIVATE_KEY"),
+    "private_key": pk_service,
     "client_email": os.getenv("FIRESTORE_CLIENT_EMAIL"),
     "client_id": os.getenv("FIRESTORE_CLIENT_ID"),
     "auth_uri": os.getenv("FIRESTORE_AUTH_URI"),
@@ -40,11 +41,13 @@ firebase_admin.initialize_app({
 })
 
 
+firebase_admin.initialize_app(credens)
+
+
 # pydantic model with reasoning and is_health_related
 class Guardrail(BaseModel):
     reasoning: str
     is_health_related: bool
-
 
 def create_db_user(user_fname: str, user_lname: str):
     """
@@ -296,7 +299,7 @@ class HumanExternalDataStore:
         ))
         print("invoking chat...")
         # invoke chat
-        ai_msg = self.invoke_chat(self.msg_chain + [human_msg], "str")
+        ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
         # add ai message to msg_chain
         human_msg_simplified = HumanMessage(content=human_message)
         self.msg_chain.append(human_msg_simplified)
