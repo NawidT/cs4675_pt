@@ -285,57 +285,57 @@ class HumanExternalDataStore:
         print(guardrail_health_related)
         if not guardrail_health_related:
             return "The message sent is not within the realms of medical/fitness/nutrition advice. Please rephrase your question."
-
+        # add human message to msg_chain
+        human_msg = HumanMessage(content="""
+            Here is the key facts: {key_facts}
+            Here is the summary: {summary}
+            Here is the human message: {human_message}
+            Here is the meal plan: {meal_plan}
+            Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
+        """.format(
+            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
+            summary=self.structured_data["summary"],
+            human_message=human_message,
+            meal_plan=self.structured_data["meal_plan"]
+        ))
+        print("invoking chat...")
+        # invoke chat
+        ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
         # check if meal plan needs to be changed
-        meal_plan_change_needed = self.determine_if_meal_plan_change_needed(human_message)
+        meal_plan_change_needed = self.determine_if_meal_plan_change_needed(human_message, ai_msg)
         if meal_plan_change_needed:
-            self.change_meal_plan()
-            ai_msg = "The meal plan needs to be changed. Please wait while I update it."
-        else:
-            # add human message to msg_chain
-            human_msg = HumanMessage(content="""
-                Here is the key facts: {key_facts}
-                Here is the summary: {summary}
-                Here is the human message: {human_message}
-                Here is the meal plan: {meal_plan}
-                Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
-            """.format(
-                key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
-                summary=self.structured_data["summary"],
-                human_message=human_message,
-                meal_plan=self.structured_data["meal_plan"]
-            ))
-            print("invoking chat...")
-            # invoke chat
-            ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
-            # add ai message to msg_chain
-            self.msg_chain.append(AIMessage(content=ai_msg))
+            self.change_meal_plan(ai_msg)
+            ai_msg += "The meal plan needs to be changed. Please wait while I update it."
+        self.msg_chain.append(AIMessage(content=ai_msg))
             
         human_msg_simplified = HumanMessage(content=human_message)
         self.msg_chain.append(human_msg_simplified)
+
         # update unstructured data
         self.update_summary()
         # self.update_key_facts()
 
         return ai_msg
     
-    def determine_if_meal_plan_change_needed(self, human_message: str):
+    def determine_if_meal_plan_change_needed(self, human_message: str, ai_message:str):
         """
         Used to determine if the meal plan needs to be changed using key facts, summary and last 8 messages
         """
         # invoke chat
         result = self.chat.invoke([HumanMessage(content="""
-            Based on the the last message and existing meal plan, determine if the meal plan needs to be changed.
+            Based on the the last message and last response, determine if the meal plan needs to be changed.
             Last Message: {last_message}
+            Last Response: {last_response}
             RETURN ONLY True OR False
         """.format(
             last_message=human_message,
+            last_response=ai_message
         ))])
         print(result.content.strip())
         result = True if result.content.strip() == "True" else False
         return result
 
-    def change_meal_plan(self):
+    def change_meal_plan(self, ai_message : str):
         """
         If the meal plan needs to be changed, change it
         """
@@ -345,13 +345,15 @@ class HumanExternalDataStore:
             Here is the key facts: [ {key_facts} ]
             Here is the summary: {summary}
             Here is what the user wants: {last_message}
+            Response to user's wants: {last_response}
             The meal plan needs to change. What should the new meal plan be?
             RETURN ONLY THE NEW MEAL PLAN
         """.format(
             meal_plan=self.structured_data["meal_plan"],
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
             summary=self.structured_data["summary"],
-            last_message=self.msg_chain[-1].content
+            last_message=self.msg_chain[-1].content,
+            last_response=ai_message
         ))], "str")
         self.structured_data["meal_plan"] = result
     
