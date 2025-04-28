@@ -73,7 +73,7 @@ def create_db_user(user_fname: str, user_lname: str):
     })
     # save references   
     user_ref = user_ref.get().to_dict()
-    kf_ref = {}
+    kf_ref = kf_ref.get().to_dict()
 
     return user_ref, kf_ref
 
