@@ -40,8 +40,8 @@ const ChatPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const theme = useTheme();
   const [selectedLLM, setSelectedLLM] = useState('gpt-4o-mini');
-  // const server_url = "https://cs4675pt-production.up.railway.app" // production
-  const server_url = "http://localhost:5000" // local
+  const server_url = "https://cs4675pt-production.up.railway.app" // production
+  // const server_url = "http://localhost:5000" // local
 
   useEffect(() => {
     // combine human_messages and ai_responses into messages, alternating between user and ai
