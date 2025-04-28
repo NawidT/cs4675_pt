@@ -305,7 +305,7 @@ class HumanExternalDataStore:
             Here is the summary of the conversation: {summary}
             Here is the human message: {human_message}
             Here is the current meal plan: {meal_plan}
-            If the human message has the phrase "meal plan" generate a new meal plan and try to make minimal changes to the current meal plan while fulfilling the user wants. Include the new meal plan in the answer.
+            ONLY generate a new meal plan that makes minimal changes to the current meal plan while fulfilling the user wants if the human message has the phrase "meal plan". 
             Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
         """.format(
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
