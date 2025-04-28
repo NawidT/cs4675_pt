@@ -133,10 +133,10 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     # update key facts
     user_doc = user_ref.get()
     user_doc_data = user_doc.to_dict()
-    kf_ref_path = user_doc_data.get("kf_ref")
-    kf_ref = db.document(kf_ref_path)  # This should be a DocumentReference
-    
-    kf_ref.update(key_facts)
+    if key_facts != {}:
+        kf_ref_path = user_doc_data.get("kf_ref")
+        kf_ref = db.document(kf_ref_path)
+        kf_ref.update(key_facts)
 
     return True, "User data saved"
 
@@ -186,9 +186,9 @@ class HumanExternalDataStore:
 
         self.structured_data["messages"] = msgs
         self.structured_data["responses"] = resps
-
+        print("structured_data: ", self.structured_data)
         # save to database
-        save_db_user_data(self.fname, self.lname, self.structured_data, self.unstructured_data)
+        return save_db_user_data(self.fname, self.lname, self.structured_data, self.unstructured_data)
 
     def chat_guardrails(self, human_message: str):
         """
@@ -253,12 +253,10 @@ class HumanExternalDataStore:
             Make as few changes to the summary, keep the key pieces of information still there.
             If the summary is empty/meaningless, create a new summary. \n
             Summary: {summary} \n
-            Key Facts: {key_facts}. \n
             Here are the last 8 messages: {last_8_messages} \n
             RETURN ONLY THE SUMMARY AS A STRING
         """.format(
             summary=self.structured_data["summary"], 
-            key_facts=self.unstructured_data["key_facts"],
             last_8_messages=("|||".join([ "Message "+str(i+1)+": "+m.content.strip()  for i, m in enumerate(self.msg_chain[-8:])]))
         ))
 
@@ -284,7 +282,7 @@ class HumanExternalDataStore:
         # invoke chat
         try:
             output = self.invoke_chat(self.msg_chain + [kf_upd], "json")
-            if type(output) == dict:
+            if type(output) == list:
                 self.unstructured_data["key_facts"] = output
         except Exception as e:
             self.unstructured_data["key_facts"] = {}
@@ -307,13 +305,12 @@ class HumanExternalDataStore:
             self.msg_chain.append(AIMessage(content="Request Fullfilled."))
         else:
             human_msg = HumanMessage(content="""
-                Here is the key facts: {key_facts}
                 Here is the summary of the conversation: {summary}
                 Here is the human message: {human_message}
                 Here is the current meal plan: {meal_plan}
                 Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
             """.format(
-                key_facts=self.unstructured_data["key_facts"],
+                # key_facts=self.unstructured_data["key_facts"],
                 summary=self.structured_data["summary"],
                 human_message=human_message,
                 meal_plan=self.structured_data["meal_plan"]
@@ -336,7 +333,7 @@ class HumanExternalDataStore:
 
         # update unstructured data
         self.update_summary()
-        self.update_key_facts()
+        # self.update_key_facts()
         return ai_msg
     
     def determine_if_meal_plan_change_needed(self, human_message: str, ai_message:str):
@@ -376,15 +373,13 @@ class HumanExternalDataStore:
         # invoke chat
         result = self.invoke_chat([HumanMessage(content="""
             Here is the existing meal plan: {meal_plan}
-            Here is the key facts: [ {key_facts} ]
             Here is the summary of the conversation: {summary}
             Here is what the user wants: {last_message}
             The meal plan needs to change. What should the new meal plan be? Make minimal changes to the existing meal plan while PIORITIZING THE USERS WANTS.
             ONLY INCLUDE INFORMATION PERTAINING TO A MEAL PLAN
-            RETURN ONLY THE NEW MEAL PLAN
+            RETURN ONLY THE NEW MEAL PLAN AS A STRING
         """.format(
             meal_plan=self.structured_data["meal_plan"],
-            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
             summary=self.structured_data["summary"],
             last_message=human_message
         ))], "str")
