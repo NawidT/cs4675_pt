@@ -73,7 +73,6 @@ def create_db_user(user_fname: str, user_lname: str):
     # close db
     user_ref = user_ref.get().to_dict()
     kf_ref = kf_ref.get().to_dict()
-    db.close()
 
     return user_ref, kf_ref
 
@@ -97,9 +96,6 @@ def grab_db_user_data(user_fname: str, user_lname: str):
     key_facts = kf_ref.get().to_dict()
 
     user_data = user_ref.to_dict()
-
-    # close db
-    db.close()
 
     # return user data and key facts
     return user_data, key_facts
@@ -127,9 +123,6 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     
     for k, v in key_facts.items():
         kf_ref.collection("key_facts").document(k).set({"value": v})
-
-    # close db
-    db.close()
 
     return True, "User data saved"
 
