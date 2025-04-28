@@ -68,12 +68,12 @@ def create_db_user(user_fname: str, user_lname: str):
         "messages": [],
         "responses": [],
         "summary": "",
-        "kf_ref": kf_ref,
+        "kf_ref": kf_ref.path, # we want the path
         "meal_plan": ""
     })
     # save references   
     user_ref = user_ref.get().to_dict()
-    kf_ref = kf_ref.get().to_dict()
+    kf_ref = {}
 
     return user_ref, kf_ref
 
@@ -93,8 +93,8 @@ def grab_db_user_data(user_fname: str, user_lname: str):
     user_ref = users[0]
     
     # get key facts
-    kf_ref = user_ref.get("kf_ref")
-    key_facts = kf_ref.get().to_dict()
+    kf_ref_path = user_ref.get("kf_ref")
+    key_facts = db.document(kf_ref_path).get().to_dict()
 
     user_data = user_ref.to_dict()
 
@@ -120,7 +120,8 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
 
     # update key facts
     user_doc = user_ref.get()
-    kf_ref = user_doc.get("kf_ref")  # This should be a DocumentReference
+    kf_ref_path = user_doc.get("kf_ref")
+    kf_ref = db.document(kf_ref_path)  # This should be a DocumentReference
     
     for k, v in key_facts.items():
         kf_ref.collection("key_facts").document(k).set({"value": v})
