@@ -44,6 +44,9 @@ def init():
         pool[api_id]["db"] = HumanExternalDataStore(pool[api_id]["fname"], pool[api_id]["lname"])
     
     cur_db = pool[api_id]["db"]
+    end_time = time()
+    print(f"API to Firebase time: {end_time - start_time} seconds")
+    
     return jsonify({
         "status": "success", 
         "message": "Database connection initialized",
