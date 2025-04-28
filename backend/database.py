@@ -55,7 +55,16 @@ def create_db_user(user_fname: str, user_lname: str):
     Stateless API. Used to create a new user in the database
     """
     db = firestore.client()
-
+    users = db.collection("convos")\
+        .where(filter=firestore.firestore.FieldFilter("fname", "==", user_fname))\
+        .where(filter=firestore.firestore.FieldFilter("lname", "==", user_lname))\
+        .get()
+    if len(users) > 0:
+        user_document = users[0]
+        user_data = user_document.to_dict()
+        kf_ref_path = user_data.get("kf_ref")
+        key_facts = db.document(kf_ref_path).get().to_dict() or {}
+        return user_data, key_facts
     # create key facts
     kf_ref = db.collection("keyfacts").document()
     kf_ref.set({})
@@ -73,7 +82,7 @@ def create_db_user(user_fname: str, user_lname: str):
     })
     # save references   
     user_ref = user_ref.get().to_dict()
-    kf_ref = kf_ref.get().to_dict()
+    kf_ref =  {}
 
     return user_ref, kf_ref
 
@@ -203,12 +212,6 @@ class HumanExternalDataStore:
     
     def invoke_chat(self, messages: list[BaseMessage], ret_type: str):
         """ Used to invoke the chat model and return the result in the specified format """
-        system_msg = SystemMessage(content=(
-            "You are a health and fitness assistant whose job is to provide personalized advice" + \
-            "based off the key facts of a user, the summary of your conversation with the user," + \
-            "and the last message the user gave."
-        ))
-        messages = [system_msg] + messages
         try:
             if self.model.startswith("gpt"):
                 self.chat = ChatOpenAI(model=self.model)
