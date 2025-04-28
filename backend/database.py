@@ -324,6 +324,8 @@ class HumanExternalDataStore:
             # invoke chat
             try: 
                 ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
+                if ai_msg.strip() == "":
+                    ai_msg = "I am not sure how to respond to that. Can you please rephrase your question?"
             except Exception as e:
                 return "I am not sure how to respond to that. Can you please rephrase your question?"
 
