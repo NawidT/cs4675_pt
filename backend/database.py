@@ -70,7 +70,7 @@ def create_db_user(user_fname: str, user_lname: str):
         "kf_ref": kf_ref,
         "meal_plan": ""
     })
-    # close db
+    # save references   
     user_ref = user_ref.get().to_dict()
     kf_ref = kf_ref.get().to_dict()
 
@@ -291,7 +291,8 @@ class HumanExternalDataStore:
             Here is the key facts: {key_facts}
             Here is the summary of the conversation: {summary}
             Here is the human message: {human_message}
-            Here is the meal plan: {meal_plan}
+            Here is the current meal plan: {meal_plan}
+            If your answer includes a new meal plan try to make minimal changes to the current meal plan while fulfilling the user wants and include the new meal plan in the answer.
             Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
         """.format(
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
@@ -354,6 +355,7 @@ class HumanExternalDataStore:
             Here is the summary of the conversation: {summary}
             Here is what the user wants: {last_message}
             Response to user's wants: {last_response}
+            If the response to the user's wants includes something that looks like a meal plan, return that meal plan as the new meal plan.
             The meal plan needs to change. What should the new meal plan be? Make minimal changes to the existing meal plan while fullfilling the user wants.
             ONLY INCLUDE INFORMATION PERTAINING TO A MEAL PLAN
             RETURN ONLY THE NEW MEAL PLAN
