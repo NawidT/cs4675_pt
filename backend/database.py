@@ -339,7 +339,7 @@ class HumanExternalDataStore:
             Here is what the user wants: {last_message}
             Response to the user's wants: {last_response}
             determine if the meal plan needs to be changed. 
-            If the users wants is a question return ONLY False
+            If the users wants is a question that doesn't explicitly mention the words "meal plan" return ONLY False
             If the response to the user's wants includes something that looks like a meal plan return ONLY True
             RETURN ONLY True OR False
         """.format(
