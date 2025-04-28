@@ -24,6 +24,7 @@ const LandingPage = () => {
   const handleSubmit = async () => {
     if (firstName.trim() && lastName.trim()) {
       // call with firstName and lastName
+      const startTime = Date.now();
       const response = await fetch(server_url + '/init', {
         method: 'POST',
         headers: {
@@ -34,6 +35,7 @@ const LandingPage = () => {
           userlname: lastName,
         }),
       });
+      
       const data = await response.json();
       if (data.status === 'success') {
         setUserfname(firstName);
@@ -45,6 +47,9 @@ const LandingPage = () => {
       } else {
         console.error('Failed to initialize user');
       }
+      const endTime = Date.now();
+      const RTT = endTime - startTime;
+      console.log(`RTT LOGIN: Firebase to Flask: ${RTT} ms`);
     }
   };
 

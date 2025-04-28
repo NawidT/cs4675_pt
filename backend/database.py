@@ -1,3 +1,4 @@
+from time import time
 import firebase_admin
 from firebase_admin import credentials, firestore
 from typing_extensions import TypedDict
@@ -217,12 +218,14 @@ class HumanExternalDataStore:
         except Exception as e:
             print(e)
             return "The model is currently down. Please try again later."
-        
+        start_time = time()
         if ret_type == "json":
             parser = JsonOutputParser()
             try:
                 result = self.chat.invoke(messages)
                 parsed_result = parser.invoke(result)
+                end_time = time()
+                print(f"Lang to GPT and back RTT: {end_time - start_time} seconds")
                 return parsed_result
             except Exception as e:
                 reformat_msg = HumanMessage(content=f"""
@@ -231,10 +234,14 @@ class HumanExternalDataStore:
                 """)
                 second_try = self.chat.invoke([reformat_msg])
                 second_parsed = parser.invoke(second_try)
+                end_time = time()
+                print(f"Lang to GPT and back RTT: {end_time - start_time} seconds")
                 return second_parsed
         elif ret_type == "str":
             chain = self.chat | StrOutputParser()
             result = chain.invoke(messages)
+            end_time = time()
+            print(f"Lang to GPT and back RTT: {end_time - start_time} seconds")
             return result
         else:
             raise ValueError("Invalid return type")
@@ -292,15 +299,13 @@ class HumanExternalDataStore:
         if not guardrail_health_related:
             return "The message sent is not within the realms of medical/fitness/nutrition advice. Please rephrase your question."
         # add human message to msg_chain
-        if "meal plan" in human_message.lower():
-            
+        
         human_msg = HumanMessage(content="""
             Here is the key facts: {key_facts}
             Here is the summary of the conversation: {summary}
             Here is the human message: {human_message}
             Here is the current meal plan: {meal_plan}
-            If the human message is a question that doesn't explicitly mention the words "meal plan" do not generate a new meal plan.
-            If your answer includes a new meal plan try to make minimal changes to the current meal plan while fulfilling the user wants and include the new meal plan in the answer.
+            If the human message has the phrase "meal plan" generate a new meal plan and try to make minimal changes to the current meal plan while fulfilling the user wants. Include the new meal plan in the answer.
             Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
         """.format(
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
@@ -315,8 +320,7 @@ class HumanExternalDataStore:
         except Exception as e:
             return "I am not sure how to respond to that. Can you please rephrase your question?"
         # check if meal plan needs to be changed
-        meal_plan_change_needed = self.determine_if_meal_plan_change_needed(human_message, ai_msg)
-        if meal_plan_change_needed:
+        if "meal plan" in human_message.lower():
             self.change_meal_plan(ai_msg)
             ai_msg += "\n\nThe meal plan needs to be changed. Please wait while I update it."
         self.msg_chain.append(AIMessage(content=ai_msg))

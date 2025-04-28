@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from flask_cors import CORS
 from typing_extensions import TypedDict
 from pydantic import BaseModel
+from time import time
 # Load environment variables
 load_dotenv()
 
@@ -26,7 +27,7 @@ def init():
     # handle authentication
     userfname = data.get('userfname')
     userlname = data.get('userlname')
-
+    start_time = time()
     api_id = userfname + ":" + userlname
 
     if api_id not in pool:
@@ -66,6 +67,7 @@ def chat():
     """
     try:
         # Get JSON data from request
+        start_time = time()
         data = request.get_json()
         
         if not data:
@@ -86,7 +88,8 @@ def chat():
         pool[api_id]["db"].model = model
         ai_response = pool[api_id]["db"].call_chat(message)
 
-        
+        end_time = time()
+        print(f"API to Lang to GPT and back RTT: {end_time - start_time} seconds")
         return jsonify({
             "status": "success",
             "response": ai_response,
