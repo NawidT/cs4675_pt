@@ -10,6 +10,9 @@ const LandingPage = () => {
   const [lastName, setLastName] = useState('');
   const { setUserfname, setUserlname, setHumanMessages, setAiResponses, setMealPlan } = useContext(UserContext);
 
+  const server_url = "https://cs4675pt-production.up.railway.app" // production
+  // const server_url = "http://localhost:5000" // local
+
   const handleClickOpen = () => {
     setOpen(true);
   };
@@ -20,8 +23,8 @@ const LandingPage = () => {
 
   const handleSubmit = async () => {
     if (firstName.trim() && lastName.trim()) {
-      // call localhost:5000/init with firstName and lastName
-      const response = await fetch('http://localhost:5000/init', {
+      // call with firstName and lastName
+      const response = await fetch(server_url + '/init', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -31,6 +34,7 @@ const LandingPage = () => {
           userlname: lastName,
         }),
       });
+      
       const data = await response.json();
       if (data.status === 'success') {
         setUserfname(firstName);

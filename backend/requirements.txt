@@ -6,3 +6,6 @@ langchain
 flask
 flask-cors
 python-dotenv
+langchain-openai
+langchain-ollama
+langchain-google-genai

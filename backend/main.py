@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify
-from database import HumanExternalDataStore
+from database import HumanExternalDataStore, HumanMessage, AIMessage
 import os
 from dotenv import load_dotenv
 from flask_cors import CORS
 from typing_extensions import TypedDict
 from pydantic import BaseModel
+from time import time
 # Load environment variables
 load_dotenv()
 
@@ -26,7 +27,7 @@ def init():
     # handle authentication
     userfname = data.get('userfname')
     userlname = data.get('userlname')
-
+    start_time = time()
     api_id = userfname + ":" + userlname
 
     if api_id not in pool:
@@ -43,11 +44,14 @@ def init():
         pool[api_id]["db"] = HumanExternalDataStore(pool[api_id]["fname"], pool[api_id]["lname"])
     
     cur_db = pool[api_id]["db"]
+    end_time = time()
+    print(f"API to Firebase time: {end_time - start_time} seconds")
+    
     return jsonify({
         "status": "success", 
         "message": "Database connection initialized",
-        "human_messages": cur_db.structured_data["messages"],
-        "ai_responses": cur_db.structured_data["responses"],
+        "human_messages": [m.content for m in cur_db.msg_chain if isinstance(m, HumanMessage)], # "responses" and "messages" was removed
+        "ai_responses": [m.content for m in cur_db.msg_chain if isinstance(m, AIMessage)],
         "meal_plan": cur_db.structured_data['meal_plan']
     }), 200
 
@@ -66,6 +70,7 @@ def chat():
     """
     try:
         # Get JSON data from request
+        start_time = time()
         data = request.get_json()
         
         if not data:
@@ -86,7 +91,8 @@ def chat():
         pool[api_id]["db"].model = model
         ai_response = pool[api_id]["db"].call_chat(message)
 
-        
+        end_time = time()
+        print(f"API to Lang to GPT and back RTT: {end_time - start_time} seconds")
         return jsonify({
             "status": "success",
             "response": ai_response,
@@ -94,9 +100,10 @@ def chat():
         }), 200
         
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 500
     
-@app.route('/close', methods=['GET'])
+@app.route('/close', methods=['POST'])
 def close():
     """
     Close the database for a user
@@ -112,10 +119,11 @@ def close():
         del pool[api_id]
         return jsonify({"status": "success", "message": "Database connection closed"}), 200
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 500
     
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False)
 

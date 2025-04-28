@@ -1,15 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Box,
   TextField,
   Button,
   Paper,
   Typography,
-  List,
   ListItem,
   ListItemText,
   IconButton,
-  Divider,
   useTheme,
   CircularProgress,
   FormControl,
@@ -31,6 +29,7 @@ interface Message {
   text: string;
   isUser: boolean;
   timestamp: Date;
+  rtt?: number; // Round-trip time in milliseconds
 }
 
 const ChatPage = () => {
@@ -40,7 +39,10 @@ const ChatPage = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const theme = useTheme();
-  const [selectedLLM, setSelectedLLM] = useState('gpt-3.5-turbo');
+  const [selectedLLM, setSelectedLLM] = useState('gpt-4o-mini');
+  const server_url = "https://cs4675pt-production.up.railway.app" // production
+  // const server_url = "http://localhost:5000" // local
+
   useEffect(() => {
     // combine human_messages and ai_responses into messages, alternating between user and ai
     const combinedMessages: Message[] = [];
@@ -58,7 +60,13 @@ const ChatPage = () => {
     }
     setMessages(combinedMessages);
   }, [human_messages, ai_responses]);
-  
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
   // Initialize Gemini service with API key from environment variables
   // const llmService = new GeminiService(import.meta.env.VITE_GEMINI_API_KEY);
@@ -79,7 +87,8 @@ const ChatPage = () => {
 
     try {
       // Get AI response by calling localhost 5000/chat and sending the message, userfname, and userlname
-      const response = await fetch('http://localhost:5000/chat', {
+      const startTime = Date.now();
+      const response = await fetch(server_url + '/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,12 +100,16 @@ const ChatPage = () => {
           model: selectedLLM,
         })
       });
-
+      const endTime = Date.now();
       const data = await response.json();
+      
+      const RTT = endTime - startTime;
+
       const aiMessage: Message = {
         text: data.response,
         isUser: false,
         timestamp: new Date(),
+        rtt: RTT,
       };
       if (data.meal_plan) {
         setMealPlan(data.meal_plan);  
@@ -199,19 +212,27 @@ const ChatPage = () => {
               >
                 <ListItemText
                   primary={
-                    message.isUser ? (
-                      message.text
-                    ) : (
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {message.text}
                       </ReactMarkdown>
-                    )
                   }
-                  secondary={message.timestamp.toLocaleTimeString()}
+                  secondary={
+                    <>
+                      <Typography variant="caption" color="text.secondary" display="block">
+                        {message.timestamp.toLocaleTimeString()}
+                      </Typography>
+                      {!message.isUser && message.rtt !== undefined && (
+                        <Typography variant="caption" sx={{ fontSize: '0.6rem', opacity: 0.7}} display="block">
+                          RTT: {message.rtt} ms
+                        </Typography>
+                      )}
+                    </>
+                  }
                 />
               </Paper>
             </ListItem>
           ))}
+          <div ref={bottomRef} />
         </Box>
 
         {/* Input Area */}
@@ -232,12 +253,13 @@ const ChatPage = () => {
                 onChange={(e) => setSelectedLLM(e.target.value)}
                 label="Select LLM"
               >
-                <MenuItem value="gpt-3.5-turbo">gpt-3.5-turbo</MenuItem>
                 <MenuItem value="gpt-4o-mini">gpt-4o-mini</MenuItem>
+                <MenuItem value="gpt-3.5-turbo">gpt-3.5-turbo</MenuItem>
                 <MenuItem value="gemini-1.5-flash">gemini-1.5-flash</MenuItem>
                 <MenuItem value="llama3.2">llama3.2</MenuItem>
                 <MenuItem value="llama3.1">llama3.1</MenuItem>
                 <MenuItem value="llama2">llama2</MenuItem>
+                <MenuItem value="deepseek-r1">deepseek-r1</MenuItem>
               </Select>
             </FormControl>
             
@@ -301,8 +323,15 @@ const ChatPage = () => {
               variant="contained"
               color="secondary"
               onClick={() => {
-                fetch('http://localhost:5000/close', {
-                  method: 'GET'
+                fetch(server_url + '/close', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    userfname: userfname,
+                    userlname: userlname,
+                  }),
                 });
                 window.location.href = '/';
               }}

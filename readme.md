@@ -17,6 +17,9 @@ Personal Transformer (PT) is an intelligent fitness companion that leverages RAG
 - Natural Language Processing
 - User Authentication & Authorization
 
+## System Design Overview
+![Draw.io for the System Design](https://github.com/NawidT/cs4675_pt/blob/main/assets/system_design.png)
+
 ## Getting Started
 
 1. Clone the repository
