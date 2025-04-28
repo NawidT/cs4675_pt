@@ -22,15 +22,29 @@ Personal Transformer (PT) is an intelligent fitness companion that leverages RAG
 ## System Design Overview
 ![Draw.io for the System Design](https://github.com/NawidT/cs4675_pt/blob/main/assets/system_design.png)
 
-## Getting Started
+## The code is deployed virtually at https://cs4675pt.vercel.app
 
+## Running the code locally:
 1. Clone the repository
-2. Set up Firebase credentials
-3. Install dependencies
-4. Run the application
-
+2. Set up Firebase credentials and environment variables
+3. Inside LandingPage.tsx and ChatPage.tsx change the server_url variable to "http://localhost:5000"
+4. To run the server
+     - Open a separate console
+       ```bash
+       cd backend/
+       pip install -r requirements.txt
+       python main.py
+       ```
+5. To run the UI
+     - Open a separate console
+       ```bash
+       cd frontend/
+       npm install
+       npm run dev
+       ```
+6. Visit http://localhost:5173/ in your browser to open the application
 
 ## Next Tasks/Features
 1. Create evaluation ROUGE notebook
-2. Choose between multiple LLM's (OpenAI, Claude, Gemeni)
-3. Handle generated content within RAG loop
+2. Integrate reinforcement learning human feedback (RLHF) to select best models from the batch
+3. Integrate open-source models into the backend server
