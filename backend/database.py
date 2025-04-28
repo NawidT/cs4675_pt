@@ -368,7 +368,8 @@ class HumanExternalDataStore:
             Here is the key facts: [ {key_facts} ]
             Here is the summary of the conversation: {summary}
             Here is what the user wants: {last_message}
-            The meal plan needs to change. What should the new meal plan be? Make minimal changes to the existing meal plan while PRIORITIZING the user's wants.
+            DO WHAT THE USER WANTS EVEN IF IT MEANS THE MEAL PLAN NEED SIGNIFICANT CHANGES
+            The meal plan needs to change. What should the new meal plan be? 
             ONLY INCLUDE INFORMATION PERTAINING TO A MEAL PLAN
             RETURN ONLY THE NEW MEAL PLAN
         """.format(
