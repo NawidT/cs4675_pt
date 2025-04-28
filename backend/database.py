@@ -89,6 +89,7 @@ def grab_db_user_data(user_fname: str, user_lname: str):
     
     if len(users) == 0:
         return create_db_user(user_fname, user_lname)
+    
     user_ref = users[0]
     
     # get key facts
@@ -109,21 +110,23 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     """
     db = firestore.client()
     # find the user
-    user_ref = db.collection("convos").where(filter=firestore.firestore.FieldFilter("fname", "==", fname))\
+    users = db.collection("convos").where(filter=firestore.firestore.FieldFilter("fname", "==", fname))\
         .where(filter=firestore.firestore.FieldFilter("lname", "==", lname)).get()[0].reference
     
-    if user_ref == None:
+    if len(users) == 0:
         return False, "User not found"
+    
+    user_ref = users[0].reference
     
     # update user data
     user_ref.update(user_data)
 
     # update key facts
-    # user_doc = user_ref.get()
-    # kf_ref = user_doc.get("kf_ref")  # This should be a DocumentReference
+    user_doc = user_ref.get()
+    kf_ref = user_doc.get("kf_ref")  # This should be a DocumentReference
     
-    # for k, v in key_facts.items():
-    #     kf_ref.collection("key_facts").document(k).set(v)
+    for k, v in key_facts.items():
+        kf_ref.collection("key_facts").document(k).set({"value": v})
 
     # close db
     db.close()
@@ -263,17 +266,22 @@ class HumanExternalDataStore:
         # update the messages and responses and limit to 20
         
         kf_upd = HumanMessage(content="""
-            Based on the the following message chain and key facts, update the key facts.
+            Based on the the following message chain and key facts, update the key facts. 
+            The key facts should pertain to health, fitness and nutrition fact that are relevant to the user.
             Be efficient, only update the key facts that have changed. Have as few changes as possible.
             Both the key and value are strings. If there are nothing meaningful, return an empty dictionary.
+            Summary of the conversation: {summary}
             Key Facts so far: {key_facts}
             RETURN ONLY THE KEY FACTS AS A DICTIONARY OF KEY VALUE PAIRS
         """.format(
+            summary=self.structured_data["summary"],
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])), 
         ))
-
         # invoke chat
-        self.unstructured_data["key_facts"] = self.invoke_chat(self.msg_chain + [kf_upd], "json")
+        try:
+            self.unstructured_data["key_facts"] = self.invoke_chat(self.msg_chain + [kf_upd], "json")
+        except Exception as e:
+            self.unstructured_data["key_facts"] = {}
 
     def call_chat(self, human_message: str):
         """
@@ -288,7 +296,7 @@ class HumanExternalDataStore:
         # add human message to msg_chain
         human_msg = HumanMessage(content="""
             Here is the key facts: {key_facts}
-            Here is the summary: {summary}
+            Here is the summary of the conversation: {summary}
             Here is the human message: {human_message}
             Here is the meal plan: {meal_plan}
             Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
@@ -313,7 +321,7 @@ class HumanExternalDataStore:
 
         # update unstructured data
         self.update_summary()
-        # self.update_key_facts()
+        self.update_key_facts()
 
         return ai_msg
     
@@ -325,11 +333,11 @@ class HumanExternalDataStore:
         result = self.chat.invoke([HumanMessage(content="""
             Here is the existing meal plan: {meal_plan}
             Here is the key facts: [ {key_facts} ]
-            Here is the summary: {summary}
+            Here is the summary of the conversation: {summary}
             Here is what the user wants: {last_message}
             Response to the user's wants: {last_response}
             determine if the meal plan needs to be changed. 
-            If the response to the user's wants includes something that looks like a meal plan return ONLY TRUE
+            If the response to the user's wants includes something that looks like a meal plan return ONLY True
             RETURN ONLY True OR False
         """.format(
             meal_plan=self.structured_data["meal_plan"],
@@ -350,7 +358,7 @@ class HumanExternalDataStore:
         result = self.invoke_chat([HumanMessage(content="""
             Here is the existing meal plan: {meal_plan}
             Here is the key facts: [ {key_facts} ]
-            Here is the summary: {summary}
+            Here is the summary of the conversation: {summary}
             Here is what the user wants: {last_message}
             Response to user's wants: {last_response}
             The meal plan needs to change. What should the new meal plan be? Make minimal changes to the existing meal plan while fullfilling the user wants.
