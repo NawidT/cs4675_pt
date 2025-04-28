@@ -133,10 +133,10 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     # update key facts
     user_doc = user_ref.get()
     user_doc_data = user_doc.to_dict()
-    if key_facts != {}:
-        kf_ref_path = user_doc_data.get("kf_ref")
-        kf_ref = db.document(kf_ref_path)
-        kf_ref.update(key_facts)
+    # if key_facts != {}:
+    #     kf_ref_path = user_doc_data.get("kf_ref")
+    #     kf_ref = db.document(kf_ref_path)
+    #     kf_ref.update(key_facts)
 
     return True, "User data saved"
 
