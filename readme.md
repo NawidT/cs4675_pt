@@ -12,7 +12,7 @@ Personal Transformer (PT) is an intelligent fitness companion that leverages RAG
 
 ## Technical Stack
 
-- Langchain for Ease of AI interactions
+- Langchain for Ease of AI interactions: https://www.langchain.com
 - Firebase Realtime Database for RAG (Retrieval-Augmented Generation)
 - Flask to run our Python API
 - React.js as our frontend framework
