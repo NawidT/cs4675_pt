@@ -132,8 +132,7 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     kf_ref_path = user_doc.get("kf_ref")
     kf_ref = db.document(kf_ref_path)  # This should be a DocumentReference
     
-    for k, v in key_facts.items():
-        kf_ref.collection("key_facts").document(k).set({"value": v})
+    kf_ref.update(key_facts)
 
     return True, "User data saved"
 
