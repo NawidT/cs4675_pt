@@ -37,11 +37,14 @@ def init():
             "db": None
         }
     
+    # get url
+    url = request.url
+    
     if pool[api_id]["db"] is None: # if the database is not initialized, initialize it
-        pool[api_id]["db"] = HumanExternalDataStore(pool[api_id]["fname"], pool[api_id]["lname"])
+        pool[api_id]["db"] = HumanExternalDataStore(pool[api_id]["fname"], pool[api_id]["lname"], url)
     else: # if the database is already initialized, close it and initialize a new one
         pool[api_id]["db"].close() 
-        pool[api_id]["db"] = HumanExternalDataStore(pool[api_id]["fname"], pool[api_id]["lname"])
+        pool[api_id]["db"] = HumanExternalDataStore(pool[api_id]["fname"], pool[api_id]["lname"], url)
     
     cur_db = pool[api_id]["db"]
     end_time = time()
@@ -52,7 +55,8 @@ def init():
         "message": "Database connection initialized",
         "human_messages": [m.content for m in cur_db.msg_chain if isinstance(m, HumanMessage)], # "responses" and "messages" was removed
         "ai_responses": [m.content for m in cur_db.msg_chain if isinstance(m, AIMessage)],
-        "meal_plan": cur_db.structured_data['meal_plan']
+        "meal_plan": cur_db.structured_data['meal_plan'],
+        "latency": end_time - start_time
     }), 200
 
 
@@ -96,7 +100,9 @@ def chat():
         return jsonify({
             "status": "success",
             "response": ai_response,
-            "meal_plan": pool[api_id]["db"].structured_data["meal_plan"]
+            "meal_plan": pool[api_id]["db"].structured_data["meal_plan"],
+            "latency": end_time - start_time,
+            "langchain_rtt": pool[api_id]["db"].last_langchain_rtt
         }), 200
         
     except Exception as e:
@@ -115,9 +121,9 @@ def close():
 
     # save user data and remove the user from the pool
     try:
-        pool[api_id]["db"].close()
+        _, message = pool[api_id]["db"].close()
         del pool[api_id]
-        return jsonify({"status": "success", "message": "Database connection closed"}), 200
+        return jsonify({"status": "success", "message": message}), 200
     except Exception as e:
         print(e)
         return jsonify({"error": str(e)}), 500
