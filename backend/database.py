@@ -60,11 +60,7 @@ def create_db_user(user_fname: str, user_lname: str):
         .where(filter=firestore.firestore.FieldFilter("lname", "==", user_lname))\
         .get()
     if len(users) > 0:
-        user_document = users[0]
-        user_data = user_document.to_dict()
-        kf_ref_path = user_data.get("kf_ref")
-        key_facts = db.document(kf_ref_path).get().to_dict() or {}
-        return user_data, key_facts
+        return grab_db_user_data(user_fname, user_lname)
     # create key facts
     kf_ref = db.collection("keyfacts").document()
     kf_ref.set({})
@@ -100,13 +96,18 @@ def grab_db_user_data(user_fname: str, user_lname: str):
         return create_db_user(user_fname, user_lname)
     
     user_ref = users[0]
-    
+
     # get key facts
     kf_ref_path = user_ref.get("kf_ref")
     key_facts = db.document(kf_ref_path).get().to_dict()
 
     user_data = user_ref.to_dict()
-
+    user_data = {
+        "messages": user_data.get("messages", []),
+        "responses": user_data.get("responses", []),
+        "summary": user_data.get("summary", ""),
+        "meal_plan": user_data.get("meal_plan", ""),
+    }
     # return user data and key facts
     return user_data, key_facts
 
