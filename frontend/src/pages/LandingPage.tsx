@@ -10,8 +10,8 @@ const LandingPage = () => {
   const [lastName, setLastName] = useState('');
   const { setUserfname, setUserlname, setHumanMessages, setAiResponses, setMealPlan } = useContext(UserContext);
 
-  const server_url = "https://cs4675pt-production.up.railway.app" // production
-  // const server_url = "http://localhost:5000" // local
+  // const server_url = "https://cs4675pt-production.up.railway.app" // production
+  const server_url = "http://localhost:5000" // local
 
   const handleClickOpen = () => {
     setOpen(true);

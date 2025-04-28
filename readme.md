@@ -12,10 +12,12 @@ Personal Transformer (PT) is an intelligent fitness companion that leverages RAG
 
 ## Technical Stack
 
-- RAG (Retrieval-Augmented Generation)
-- Firebase Realtime Database
-- Natural Language Processing
-- User Authentication & Authorization
+- Langchain for Ease of AI interactions
+- Firebase Realtime Database for RAG (Retrieval-Augmented Generation)
+- Flask to run our Python API
+- React.js as our frontend framework
+- Vercel to host our frontend on https://cs4675pt.vercel.app/
+- Railway to host our backend and handle CI/CD automatically
 
 ## System Design Overview
 ![Draw.io for the System Design](https://github.com/NawidT/cs4675_pt/blob/main/assets/system_design.png)

@@ -6,11 +6,9 @@ from langchain_openai.chat_models import ChatOpenAI
 from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
 from langchain_ollama.chat_models import ChatOllama
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser, PydanticOutputParser
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
 from pydantic import BaseModel
 import os
-from dotenv import load_dotenv
-from pathlib import Path
 import base64
 
 
@@ -97,8 +95,6 @@ def grab_db_user_data(user_fname: str, user_lname: str):
     
     user_ref = users[0]
 
-
-
     user_data = user_ref.to_dict()
     # get key facts
     kf_ref_path = user_data.get("kf_ref")
@@ -117,9 +113,13 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     """
     Stateless API. Used to save user data to the database
     """
+    if (user_data.get("messages") == [] and user_data.get("responses") == []):
+        return False, "No user data to save"
+    
     db = firestore.client()
     # find the user
-    users = db.collection("convos").where(filter=firestore.firestore.FieldFilter("fname", "==", fname))\
+    users = db.collection("convos")\
+        .where(filter=firestore.firestore.FieldFilter("fname", "==", fname))\
         .where(filter=firestore.firestore.FieldFilter("lname", "==", lname)).get()
     
     if len(users) == 0:
@@ -141,7 +141,7 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     return True, "User data saved"
 
 class HumanExternalDataStore:
-    def __init__(self, user_fname: str, user_lname: str,):
+    def __init__(self, user_fname: str, user_lname: str, requester_url: str):
         self.msg_chain = list[BaseMessage]() # list of HumanMessage and AIMessage
 
         # allow user to select model across multiple
@@ -151,6 +151,8 @@ class HumanExternalDataStore:
         self.lname = user_lname
         self.structured_data = StructuredData(messages=[], responses=[], summary="", meal_plan="")
         self.unstructured_data = UnstructuredData(key_facts={})
+        self.requester_url = requester_url
+        self.last_langchain_rtt = 0
 
         # use fname and lname to get user id. Thats our authentication
         print("retrieving user id...")
@@ -162,9 +164,6 @@ class HumanExternalDataStore:
             self.msg_chain.append(HumanMessage(content=m))
             self.msg_chain.append(AIMessage(content=self.structured_data["responses"][i]))
 
-        # remove messages and responses from structured data, since we are using msg_chain
-        # self.structured_data.pop("messages")
-        # self.structured_data.pop("responses")
 
     def close(self):
         # save summary and key facts
@@ -220,19 +219,16 @@ class HumanExternalDataStore:
                 self.chat = ChatOpenAI(model=self.model)
             elif self.model.startswith("gemini"):
                 self.chat = ChatGoogleGenerativeAI(model=self.model)
-            else:
+            elif self.requester_url.startswith("http://localhost"):
                 self.chat = ChatOllama(model=self.model)   
         except Exception as e:
             print(e)
             return "The model is currently down. Please try again later."
-        start_time = time()
         if ret_type == "json":
             parser = JsonOutputParser()
             try:
                 result = self.chat.invoke(messages)
                 parsed_result = parser.invoke(result)
-                end_time = time()
-                print(f"Lang to GPT and back RTT: {end_time - start_time} seconds")
                 return parsed_result
             except Exception as e:
                 reformat_msg = HumanMessage(content=f"""
@@ -241,14 +237,10 @@ class HumanExternalDataStore:
                 """)
                 second_try = self.chat.invoke([reformat_msg])
                 second_parsed = parser.invoke(second_try)
-                end_time = time()
-                print(f"Lang to GPT and back RTT: {end_time - start_time} seconds")
                 return second_parsed
         elif ret_type == "str":
             chain = self.chat | StrOutputParser()
             result = chain.invoke(messages)
-            end_time = time()
-            print(f"Lang to GPT and back RTT: {end_time - start_time} seconds")
             return result
         else:
             raise ValueError("Invalid return type")
@@ -266,7 +258,7 @@ class HumanExternalDataStore:
             RETURN ONLY THE SUMMARY AS A STRING
         """.format(
             summary=self.structured_data["summary"], 
-            key_facts=(", ".join([str(k)+" : "+str(v)  for k,v in self.unstructured_data["key_facts"].items()])),
+            key_facts=self.unstructured_data["key_facts"],
             last_8_messages=("|||".join([ "Message "+str(i+1)+": "+m.content.strip()  for i, m in enumerate(self.msg_chain[-8:])]))
         ))
 
@@ -287,25 +279,28 @@ class HumanExternalDataStore:
             RETURN ONLY THE KEY FACTS AS A DICTIONARY OF KEY VALUE PAIRS
         """.format(
             summary=self.structured_data["summary"],
-            key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])), 
+            key_facts=self.unstructured_data["key_facts"], 
         ))
         # invoke chat
         try:
-            self.unstructured_data["key_facts"] = self.invoke_chat(self.msg_chain + [kf_upd], "json")
+            output = self.invoke_chat(self.msg_chain + [kf_upd], "json")
+            if type(output) == dict:
+                self.unstructured_data["key_facts"] = output
         except Exception as e:
             self.unstructured_data["key_facts"] = {}
+            print("Error updating key facts: ", e)
 
     def call_chat(self, human_message: str):
         """
         Used to call the chat model and return the result in the specified format
         """
         # handle guardrails first
-        print("checking guardrails...")
         guardrail_health_related = self.chat_guardrails(human_message)
-        print(guardrail_health_related)
+        print("Passed Guardrails: ", guardrail_health_related)
         if not guardrail_health_related:
             return "The message sent is not within the realms of medical/fitness/nutrition advice. Please rephrase your question."
         # add human message to msg_chain
+        start_time = time()
         if "meal plan" in human_message.lower():                
             self.change_meal_plan(human_message)
             ai_msg = "The meal plan needs to be changed. Please wait while I update it."
@@ -318,12 +313,11 @@ class HumanExternalDataStore:
                 Here is the current meal plan: {meal_plan}
                 Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
             """.format(
-                key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
+                key_facts=self.unstructured_data["key_facts"],
                 summary=self.structured_data["summary"],
                 human_message=human_message,
                 meal_plan=self.structured_data["meal_plan"]
             ))
-            print("invoking chat...")
             # invoke chat
             try: 
                 ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
@@ -332,22 +326,28 @@ class HumanExternalDataStore:
             except Exception as e:
                 return "I am not sure how to respond to that. Can you please rephrase your question?"
 
-            self.msg_chain.append(AIMessage(content=ai_msg))
-            
+        self.msg_chain.append(AIMessage(content=ai_msg))
+
         human_msg_simplified = HumanMessage(content=human_message)
         self.msg_chain.append(human_msg_simplified)
+        end_time = time()
+        self.last_langchain_rtt = end_time - start_time
+        print(f"Lang to GPT and back RTT: {self.last_langchain_rtt} seconds")
 
         # update unstructured data
         self.update_summary()
         self.update_key_facts()
-
         return ai_msg
     
-    """ This function was to inconsistent
     def determine_if_meal_plan_change_needed(self, human_message: str, ai_message:str):
-        #Used to determine if the meal plan needs to be changed using key facts, summary and last 8 messages
+        """
+        Used to determine if the meal plan needs to be changed using key facts, summary and last 8 messages.
+        Too inconsistent to use. Must be changed in the future
+        """
+        return False
         # invoke chat
-        result = self.chat.invoke([HumanMessage(content=
+        result = self.chat.invoke(
+            [HumanMessage(content="""
             Here is the existing meal plan: {meal_plan}
             Here is the key facts: [ {key_facts} ]
             Here is the summary of the conversation: {summary}
@@ -356,7 +356,7 @@ class HumanExternalDataStore:
             determine if the meal plan needs to be changed. 
             If the users wants is a question that doesn't explicitly mention the words "meal plan" return ONLY False
             If the response to the user's wants includes something that looks like a meal plan return ONLY True
-            RETURN ONLY True OR False
+            RETURN ONLY True OR False """
         .format(
             meal_plan=self.structured_data["meal_plan"],
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
@@ -364,10 +364,11 @@ class HumanExternalDataStore:
             last_message=human_message,
             last_response=ai_message
         ))])
+
         print(result.content.strip())
         result = True if result.content.strip() == "True" else False
         return result
-    """
+    
     def change_meal_plan(self, human_message: str):
         """
         If the meal plan needs to be changed, change it
@@ -388,9 +389,3 @@ class HumanExternalDataStore:
             last_message=human_message
         ))], "str")
         self.structured_data["meal_plan"] = result
-    
-# db = HumanExternalDataStore("Nawid", "Tahmid")
-
-# db.call_chat("What are some tips I can use to improve my sleep?")
-
-# del db
