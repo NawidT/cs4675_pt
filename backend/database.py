@@ -302,7 +302,10 @@ class HumanExternalDataStore:
         ))
         print("invoking chat...")
         # invoke chat
-        ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
+        try: 
+            ai_msg = self.invoke_chat(self.msg_chain[-6:] + [human_msg], "str")
+        except Exception as e:
+            return "I am not sure how to respond to that. Can you please rephrase your question?"
         # check if meal plan needs to be changed
         meal_plan_change_needed = self.determine_if_meal_plan_change_needed(human_message, ai_msg)
         if meal_plan_change_needed:
@@ -313,8 +316,6 @@ class HumanExternalDataStore:
         human_msg_simplified = HumanMessage(content=human_message)
         self.msg_chain.append(human_msg_simplified)
 
-        if (ai_msg == ""):
-            ai_msg = "I am not sure how to respond to that. Can you please rephrase your question?"
         # update unstructured data
         self.update_summary()
         self.update_key_facts()
