@@ -108,7 +108,7 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
     db = firestore.client()
     # find the user
     users = db.collection("convos").where(filter=firestore.firestore.FieldFilter("fname", "==", fname))\
-        .where(filter=firestore.firestore.FieldFilter("lname", "==", lname)).get()[0].reference
+        .where(filter=firestore.firestore.FieldFilter("lname", "==", lname)).get()
     
     if len(users) == 0:
         return False, "User not found"
