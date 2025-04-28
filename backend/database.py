@@ -292,11 +292,14 @@ class HumanExternalDataStore:
         if not guardrail_health_related:
             return "The message sent is not within the realms of medical/fitness/nutrition advice. Please rephrase your question."
         # add human message to msg_chain
+        if "meal plan" in human_message.lower():
+            
         human_msg = HumanMessage(content="""
             Here is the key facts: {key_facts}
             Here is the summary of the conversation: {summary}
             Here is the human message: {human_message}
             Here is the current meal plan: {meal_plan}
+            If the human message is a question that doesn't explicitly mention the words "meal plan" do not generate a new meal plan.
             If your answer includes a new meal plan try to make minimal changes to the current meal plan while fulfilling the user wants and include the new meal plan in the answer.
             Keep your answer short, concise and to the point. Don't use markdown, bold, italic, etc.
         """.format(
@@ -327,12 +330,11 @@ class HumanExternalDataStore:
 
         return ai_msg
     
+    """ This function was to inconsistent
     def determine_if_meal_plan_change_needed(self, human_message: str, ai_message:str):
-        """
-        Used to determine if the meal plan needs to be changed using key facts, summary and last 8 messages
-        """
+        #Used to determine if the meal plan needs to be changed using key facts, summary and last 8 messages
         # invoke chat
-        result = self.chat.invoke([HumanMessage(content="""
+        result = self.chat.invoke([HumanMessage(content=
             Here is the existing meal plan: {meal_plan}
             Here is the key facts: [ {key_facts} ]
             Here is the summary of the conversation: {summary}
@@ -342,7 +344,7 @@ class HumanExternalDataStore:
             If the users wants is a question that doesn't explicitly mention the words "meal plan" return ONLY False
             If the response to the user's wants includes something that looks like a meal plan return ONLY True
             RETURN ONLY True OR False
-        """.format(
+        .format(
             meal_plan=self.structured_data["meal_plan"],
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
             summary=self.structured_data["summary"],
@@ -352,7 +354,7 @@ class HumanExternalDataStore:
         print(result.content.strip())
         result = True if result.content.strip() == "True" else False
         return result
-
+    """
     def change_meal_plan(self, ai_message : str):
         """
         If the meal plan needs to be changed, change it
