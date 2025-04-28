@@ -306,6 +306,7 @@ class HumanExternalDataStore:
         if "meal plan" in human_message.lower():                
             self.change_meal_plan(human_message)
             ai_msg = "The meal plan needs to be changed. Please wait while I update it."
+            self.msg_chain.append(AIMessage(content="Request Fullfilled."))
         else:
             human_msg = HumanMessage(content="""
                 Here is the key facts: {key_facts}
