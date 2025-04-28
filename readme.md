@@ -21,6 +21,7 @@ Personal Transformer (PT) is an intelligent fitness companion that leverages RAG
 
 ## System Design Overview
 ![Draw.io for the System Design](https://github.com/NawidT/cs4675_pt/blob/main/assets/system_design.png)
+- For a more detailed walkthrough of the code view the report.
 
 ## The code is deployed virtually at https://cs4675pt.vercel.app
 
