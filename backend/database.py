@@ -5,7 +5,7 @@ from langchain_openai.chat_models import ChatOpenAI
 from langchain_google_genai.chat_models import ChatGoogleGenerativeAI
 from langchain_ollama.chat_models import ChatOllama
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser, PydanticOutputParser
-from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
+from langchain_core.messages import HumanMessage, AIMessage, BaseMessage, SystemMessage
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
@@ -201,7 +201,12 @@ class HumanExternalDataStore:
     
     def invoke_chat(self, messages: list[BaseMessage], ret_type: str):
         """ Used to invoke the chat model and return the result in the specified format """
-        
+        system_msg = SystemMessage(content=(
+            "You are a health and fitness assistant whose job is to provide personalized advice" + \
+            "based off the key facts of a user, the summary of your conversation with the user," + \
+            "and the last message the user gave."
+        ))
+        messages = [system_msg] + messages
         try:
             if self.model.startswith("gpt"):
                 self.chat = ChatOpenAI(model=self.model)
