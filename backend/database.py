@@ -300,7 +300,7 @@ class HumanExternalDataStore:
             return "The message sent is not within the realms of medical/fitness/nutrition advice. Please rephrase your question."
         # add human message to msg_chain
         if "meal plan" in human_message.lower():                
-            self.change_meal_plan()
+            self.change_meal_plan(human_message)
             ai_msg = "The meal plan needs to be changed. Please wait while I update it."
         else:
             human_msg = HumanMessage(content="""
@@ -358,7 +358,7 @@ class HumanExternalDataStore:
         result = True if result.content.strip() == "True" else False
         return result
     """
-    def change_meal_plan(self):
+    def change_meal_plan(self, human_message: str):
         """
         If the meal plan needs to be changed, change it
         """
@@ -368,15 +368,14 @@ class HumanExternalDataStore:
             Here is the key facts: [ {key_facts} ]
             Here is the summary of the conversation: {summary}
             Here is what the user wants: {last_message}
-            DO WHAT THE USER WANTS EVEN IF IT MEANS THE MEAL PLAN NEED SIGNIFICANT CHANGES
-            The meal plan needs to change. What should the new meal plan be? 
+            The meal plan needs to change. What should the new meal plan be? Make minimal changes to the existing meal plan while PIORITIZING THE USERS WANTS.
             ONLY INCLUDE INFORMATION PERTAINING TO A MEAL PLAN
             RETURN ONLY THE NEW MEAL PLAN
         """.format(
             meal_plan=self.structured_data["meal_plan"],
             key_facts=(", ".join([k+" : "+v  for k,v in self.unstructured_data["key_facts"].items()])),
             summary=self.structured_data["summary"],
-            last_message=self.msg_chain[-1].content
+            last_message=human_message
         ))], "str")
         self.structured_data["meal_plan"] = result
     
