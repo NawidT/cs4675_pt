@@ -97,11 +97,13 @@ def grab_db_user_data(user_fname: str, user_lname: str):
     
     user_ref = users[0]
 
-    # get key facts
-    kf_ref_path = user_ref.get("kf_ref")
-    key_facts = db.document(kf_ref_path).get().to_dict()
+
 
     user_data = user_ref.to_dict()
+    # get key facts
+    kf_ref_path = user_data.get("kf_ref")
+    key_facts = db.document(kf_ref_path).get().to_dict()
+    # chose the user data we need
     user_data = {
         "messages": user_data.get("messages", []),
         "responses": user_data.get("responses", []),
@@ -130,7 +132,8 @@ def save_db_user_data(fname: str, lname: str, user_data: dict, key_facts: dict) 
 
     # update key facts
     user_doc = user_ref.get()
-    kf_ref_path = user_doc.get("kf_ref")
+    user_doc_data = user_doc.to_dict()
+    kf_ref_path = user_doc_data.get("kf_ref")
     kf_ref = db.document(kf_ref_path)  # This should be a DocumentReference
     
     kf_ref.update(key_facts)
