@@ -313,6 +313,8 @@ class HumanExternalDataStore:
         human_msg_simplified = HumanMessage(content=human_message)
         self.msg_chain.append(human_msg_simplified)
 
+        if (ai_msg == ""):
+            ai_msg = "I am not sure how to respond to that. Can you please rephrase your question?"
         # update unstructured data
         self.update_summary()
         self.update_key_facts()
@@ -355,9 +357,9 @@ class HumanExternalDataStore:
             Here is the summary of the conversation: {summary}
             Here is what the user wants: {last_message}
             Response to user's wants: {last_response}
-            If the response to the user's wants includes something that looks like a meal plan, return that meal plan as the new meal plan.
             The meal plan needs to change. What should the new meal plan be? Make minimal changes to the existing meal plan while fullfilling the user wants.
             ONLY INCLUDE INFORMATION PERTAINING TO A MEAL PLAN
+            If the response to the user's wants includes something that looks like a meal plan, return that meal plan as the new meal plan.
             RETURN ONLY THE NEW MEAL PLAN
         """.format(
             meal_plan=self.structured_data["meal_plan"],
